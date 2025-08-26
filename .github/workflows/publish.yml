@@ -77,6 +77,12 @@ jobs:
           # Use the GitHub Packages version
           mv package-github.json package.json
       
+      - name: Debug GitHub package info
+        run: |
+          echo "Package name: $(npm pkg get name)"
+          echo "Package version: $(npm pkg get version)"
+          echo "Registry: $(npm config get registry)"
+          
       - name: Publish to GitHub Packages
         run: npm publish
         env:
@@ -85,7 +91,7 @@ jobs:
   publish-npm:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout code
@@ -110,6 +116,12 @@ jobs:
           npm pkg set publishConfig.registry="https://registry.npmjs.org"
           npm pkg set publishConfig.access="public"
       
+      - name: Debug package info
+        run: |
+          echo "Package name: $(npm pkg get name)"
+          echo "Package version: $(npm pkg get version)"
+          echo "Registry: $(npm config get registry)"
+          
       - name: Publish to NPM
         run: npm publish
         env:
