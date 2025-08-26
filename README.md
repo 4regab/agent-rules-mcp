@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server that enables **AI agents to fetch coding r
 
 ## MCP Client Configuration
 
-### Using the Published Package (Recommended)
+### Using the Published Package
 
 Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.):
 
@@ -42,7 +42,7 @@ Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.
 
 #### `list_rules` - Lists all available rule domains with descriptions.
 
-### Using Your Own Rules Folder Repository
+### Using Your Own Rules Folder Repository  (Recommended)
 
 To use your own GitHub repository instead of the default:
 
