@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server that enables **AI agents to fetch coding r
 
 ## Features
 
-- **GitHub Integration**: Fetches rules from any GitHub repository in real-time
+- **GitHub Integration**: Fetches rules from any GitHub repository 
 - **Simple Setup**: Configure with environment variables, no local files needed
 - **Dynamic Loading**: Automatically fetches latest rules from GitHub
 - **Customizable**: Fork, customize, and contribute via GitHub
