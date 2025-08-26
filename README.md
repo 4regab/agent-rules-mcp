@@ -15,7 +15,7 @@ A Model Context Protocol (MCP) server that enables **AI agents to fetch coding r
 
 ### Using the Published Package (Recommended)
 
-Add this configuration to your MCP client (Claude Desktop, etc.):
+Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.):
 
 ```json
 {
@@ -42,21 +42,7 @@ Add this configuration to your MCP client (Claude Desktop, etc.):
 
 #### `list_rules` - Lists all available rule domains with descriptions.
 
-### Repository Structure
-
-```
-agent-rules-mcp/
-├── rules/                    # Default path (configurable)
-│   ├── react.md             # Domain: "react"
-│   ├── security.md          # Domain: "security"
-│   ├── nextjs-tailwind.md   # Domain: "nextjs-tailwind"
-│   ├── python-best.md       # Domain: "python-best"
-│   └── typescript.md        # Domain: "typescript"
-├── README.md
-└── .gitignore
-```
-
-### Using Your Own Rules Repository
+### Using Your Own Rules Folder Repository
 
 To use your own GitHub repository instead of the default:
 
