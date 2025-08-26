@@ -77,11 +77,17 @@ jobs:
           # Use the GitHub Packages version
           mv package-github.json package.json
       
+      - name: Set up GitHub Packages authentication
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Debug GitHub package info
         run: |
           echo "Package name: $(npm pkg get name)"
           echo "Package version: $(npm pkg get version)"
           echo "Registry: $(npm config get registry)"
+          echo "Auth configured: $(test -f ~/.npmrc && echo 'Yes' || echo 'No')"
           
       - name: Publish to GitHub Packages
         run: npm publish
@@ -116,13 +122,19 @@ jobs:
           npm pkg set publishConfig.registry="https://registry.npmjs.org"
           npm pkg set publishConfig.access="public"
       
+      - name: Set up npm authentication
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
       - name: Debug package info
         run: |
           echo "Package name: $(npm pkg get name)"
           echo "Package version: $(npm pkg get version)"
           echo "Registry: $(npm config get registry)"
+          echo "Auth configured: $(test -f ~/.npmrc && echo 'Yes' || echo 'No')"
           
       - name: Publish to NPM
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
