@@ -1,0 +1,414 @@
+#!/usr/bin/env node
+
+/**
+ * Agent Rules MCP Server
+ * 
+ * A Model Context Protocol server that provides development rules and best practices
+ * from local markdown files in the rules/ directory.
+ */
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
+import { RuleManager } from './rule-manager.js';
+import { ErrorHandler, Logger } from './error-handler.js';
+
+// Initialize the rule manager
+const ruleManager = new RuleManager(process.env.RULES_DIRECTORY || './rules');
+
+const server = new Server(
+  {
+    name: 'agent-rules-mcp',
+    version: '1.0.0',
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
+
+// List available tools
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: [
+      {
+        name: 'get_rules',
+        description: 'Get rule content for one or multiple domains',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            domain: {
+              type: 'string',
+              description: 'The domain name to retrieve rules for (e.g., "react", "security")',
+            },
+            domains: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of domain names to retrieve rules for (e.g., ["react", "security", "nextjs"])',
+            },
+          },
+          oneOf: [
+            { required: ['domain'] },
+            { required: ['domains'] }
+          ],
+        },
+      },
+      {
+        name: 'list_rules',
+        description: 'List all available rule domains with descriptions',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false,
+        },
+      },
+    ],
+  };
+});
+
+// Handle tool calls
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+
+  try {
+    if (name === 'get_rules') {
+      // Validate input
+      if (!args || typeof args !== 'object') {
+        throw ErrorHandler.createMcpError(
+          ErrorCode.InvalidParams,
+          'Invalid arguments: expected object with domain or domains property',
+          undefined,
+          ['Provide a domain parameter as a string: {"domain": "react"}', 'Or provide domains parameter as an array: {"domains": ["react", "security"]}']
+        );
+      }
+
+      const { domain, domains } = args as { domain?: unknown; domains?: unknown };
+
+      // Determine which mode we're in (single or multiple domains)
+      let domainsToProcess: string[] = [];
+
+      if (domain && !domains) {
+        // Single domain mode
+        if (typeof domain !== 'string') {
+          throw ErrorHandler.createMcpError(
+            ErrorCode.InvalidParams,
+            'Invalid domain parameter: must be a non-empty string',
+            undefined,
+            ['Provide a domain parameter as a string', 'Example: {"domain": "react"}']
+          );
+        }
+
+        if (domain.trim().length === 0) {
+          throw ErrorHandler.handleDomainValidationError(domain);
+        }
+
+        domainsToProcess = [domain];
+      } else if (domains && !domain) {
+        // Multiple domains mode
+        if (!Array.isArray(domains)) {
+          throw ErrorHandler.createMcpError(
+            ErrorCode.InvalidParams,
+            'Invalid domains parameter: must be an array of strings',
+            undefined,
+            ['Provide domains parameter as an array', 'Example: {"domains": ["react", "security", "nextjs"]}']
+          );
+        }
+
+        if (domains.length === 0) {
+          throw ErrorHandler.createMcpError(
+            ErrorCode.InvalidParams,
+            'Domains array cannot be empty',
+            undefined,
+            ['Provide at least one domain in the array', 'Example: {"domains": ["react"]}']
+          );
+        }
+
+        // Validate each domain in the array
+        for (const d of domains) {
+          if (typeof d !== 'string' || d.trim().length === 0) {
+            throw ErrorHandler.createMcpError(
+              ErrorCode.InvalidParams,
+              'All domains must be non-empty strings',
+              undefined,
+              ['Ensure all items in domains array are valid strings', 'Example: {"domains": ["react", "security"]}']
+            );
+          }
+        }
+
+        domainsToProcess = domains as string[];
+      } else {
+        throw ErrorHandler.createMcpError(
+          ErrorCode.InvalidParams,
+          'Must provide either domain or domains parameter, but not both',
+          undefined,
+          ['For single domain: {"domain": "react"}', 'For multiple domains: {"domains": ["react", "security"]}']
+        );
+      }
+
+      // Sanitize all domain names
+      const sanitizedDomains = domainsToProcess.map(d => {
+        const sanitized = d.replace(/[^a-zA-Z0-9\-_]/g, '');
+        if (sanitized !== d) {
+          throw ErrorHandler.handleDomainValidationError(d);
+        }
+        return sanitized;
+      });
+
+      // Get rule content for all domains
+      const results = await Promise.allSettled(
+        sanitizedDomains.map(async (sanitizedDomain) => {
+          const ruleContent = await ruleManager.getRuleContentSafe(sanitizedDomain);
+          if (!ruleContent) {
+            throw new Error(`Rule not found for domain: ${sanitizedDomain}`);
+          }
+          return {
+            domain: ruleContent.domain,
+            content: ruleContent.content,
+          };
+        })
+      );
+
+      // Process results
+      const successfulResults: any[] = [];
+      const failedDomains: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulResults.push(result.value);
+        } else {
+          failedDomains.push(sanitizedDomains[index]);
+        }
+      });
+
+      // If all domains failed, throw an error with helpful information
+      if (successfulResults.length === 0) {
+        const availableDomains = await ruleManager.listAvailableDomains();
+        const domainList = availableDomains.map(d => d.domain).join(', ');
+        
+        throw ErrorHandler.createMcpError(
+          ErrorCode.InvalidParams,
+          `No rules found for any of the requested domains: ${failedDomains.join(', ')}`,
+          undefined,
+          [
+            'Check if the domain names are spelled correctly',
+            'Use list_rules to see available domains',
+            `Available domains: ${domainList}`,
+            'Domain names should match the filename without .md extension'
+          ]
+        );
+      }
+
+      // Return results with simplified format (title and content only)
+      const responseData = domainsToProcess.length === 1 
+        ? {
+            title: successfulResults[0].domain,
+            content: successfulResults[0].content
+          }
+        : {
+            rules: successfulResults.map(rule => ({
+              title: rule.domain,
+              content: rule.content
+            })),
+            total: successfulResults.length,
+            ...(failedDomains.length > 0 && { failed: failedDomains })
+          };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(responseData, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (name === 'list_rules') {
+      // No input validation needed for list_rules as it takes no parameters
+      
+      // Get all available domains
+      const domains = await ruleManager.listAvailableDomains();
+      
+      if (domains.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                domains: [],
+                totalCount: 0,
+                message: 'No rule files found in the rules directory. Add .md files to the rules/ directory to make them available.',
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              domains: domains.map(domain => ({
+                domain: domain.domain,
+                description: domain.description,
+                lastUpdated: domain.lastUpdated,
+              })),
+              totalCount: domains.length,
+              message: `Found ${domains.length} rule domain${domains.length === 1 ? '' : 's'}`,
+            }, null, 2),
+          },
+        ],
+      };
+    }
+
+    throw new McpError(
+      ErrorCode.MethodNotFound,
+      `Unknown tool: ${name}`
+    );
+  } catch (error) {
+    if (error instanceof McpError) {
+      throw error;
+    }
+
+    Logger.error(`Error in tool ${name}`, error, { toolName: name });
+    throw ErrorHandler.createMcpError(
+      ErrorCode.InternalError,
+      `Internal error in tool ${name}`,
+      undefined,
+      [
+        'Check server logs for more details',
+        'Retry the request',
+        'Contact support if the problem persists'
+      ]
+    );
+  }
+});
+
+// Graceful shutdown handling
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) {
+    return;
+  }
+  
+  isShuttingDown = true;
+  Logger.info(`Received ${signal}, shutting down gracefully...`);
+  
+  try {
+    // Clear any caches
+    ruleManager.clearCache();
+    Logger.info('Cache cleared during shutdown');
+    
+    // Exit gracefully
+    process.exit(0);
+  } catch (error) {
+    Logger.error('Error during shutdown', error);
+    process.exit(1);
+  }
+}
+
+// Register signal handlers
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  Logger.error('Uncaught exception', error);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  Logger.error('Unhandled rejection', reason, { promise: String(promise) });
+  gracefulShutdown('unhandledRejection');
+});
+
+// CLI argument handling
+function handleCliArgs() {
+  const args = process.argv.slice(2);
+  
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+Agent Rules MCP Server v1.0.0
+
+A Model Context Protocol server that provides development rules and best practices
+from local markdown files in the rules/ directory.
+
+Usage:
+  agent-rules-mcp [options]
+
+Options:
+  --help, -h     Show this help message
+  --version, -v  Show version information
+
+Environment Variables:
+  RULES_DIRECTORY  Path to the rules directory (default: ./rules)
+
+Examples:
+  agent-rules-mcp                    # Start server with default rules directory
+  RULES_DIRECTORY=/path/to/rules agent-rules-mcp  # Start with custom rules directory
+
+The server provides two MCP tools:
+  - get_rules(domain)  Get rule content for a specific domain
+  - list_rules()       List all available rule domains
+
+For more information, visit: https://github.com/your-org/agent-rules-mcp
+`);
+    process.exit(0);
+  }
+  
+  if (args.includes('--version') || args.includes('-v')) {
+    console.log('agent-rules-mcp v1.0.0');
+    process.exit(0);
+  }
+}
+
+async function main() {
+  // Handle CLI arguments first
+  handleCliArgs();
+  
+  try {
+    Logger.info('Starting Agent Rules MCP server v1.0.0');
+    Logger.info(`Rules directory: ${ruleManager.getRulesDirectory()}`);
+    Logger.info(`Node.js version: ${process.version}`);
+    Logger.info(`Platform: ${process.platform} ${process.arch}`);
+    
+    // Validate rules directory exists and is accessible
+    const domains = await ruleManager.listAvailableDomains();
+    Logger.info(`Found ${domains.length} rule domain${domains.length === 1 ? '' : 's'}`);
+    
+    if (domains.length === 0) {
+      Logger.warn('No rule files found in the rules directory', {
+        rulesDirectory: ruleManager.getRulesDirectory(),
+        suggestion: 'Add .md files to the rules/ directory to make them available'
+      });
+    } else {
+      Logger.info(`Available domains: ${domains.map(d => d.domain).join(', ')}`);
+    }
+    
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    
+    Logger.info('✓ Agent Rules MCP server running on stdio');
+    Logger.info('Server ready to accept MCP requests');
+    Logger.info('Use Ctrl+C to stop the server');
+    
+  } catch (error) {
+    Logger.error('Failed to start server', error);
+    process.exit(1);
+  }
+}
+
+main().catch((error) => {
+  Logger.error('Server failed to start', error);
+  process.exit(1);
+});
