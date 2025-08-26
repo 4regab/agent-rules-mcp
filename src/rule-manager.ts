@@ -12,8 +12,8 @@ export class RuleManager {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 
   constructor(rulesDirectory: string = './rules') {
-    // Use GitHub repository instead of local directory
-    this.fileReader = new GitHubRepositoryFileReader('4regab', 'agent-rules-mcp', 'rules', 'master');
+    // Use GitHub repository with environment variable configuration
+    this.fileReader = new GitHubRepositoryFileReader();
   }
 
   /**
