@@ -1,18 +1,19 @@
-import { RepositoryFileReader, RuleContent, DomainInfo } from './repository-file-reader.js';
+import { GitHubRepositoryFileReader, RuleContent, DomainInfo } from './github-repository-file-reader.js';
 import { Logger, OperationContinuity } from './error-handler.js';
 
 /**
  * RuleManager handles rule loading, caching, and provides high-level access to rule content
- * Uses RepositoryFileReader for file system operations
+ * Uses GitHubRepositoryFileReader for remote GitHub operations
  */
 export class RuleManager {
-  private fileReader: RepositoryFileReader;
+  private fileReader: GitHubRepositoryFileReader;
   private cache: Map<string, RuleContent> = new Map();
   private cacheTimestamps: Map<string, number> = new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 
   constructor(rulesDirectory: string = './rules') {
-    this.fileReader = new RepositoryFileReader(rulesDirectory);
+    // Use GitHub repository instead of local directory
+    this.fileReader = new GitHubRepositoryFileReader('4regab', 'agent-rules-mcp', 'rules', 'master');
   }
 
   /**
@@ -187,10 +188,10 @@ export class RuleManager {
   }
 
   /**
-   * Get the rules directory path
-   * @returns string - The rules directory path
+   * Get the repository information
+   * @returns string - The repository information
    */
   getRulesDirectory(): string {
-    return this.fileReader.getRulesDirectory();
+    return this.fileReader.getRepositoryInfo();
   }
 }

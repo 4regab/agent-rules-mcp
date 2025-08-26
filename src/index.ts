@@ -4,7 +4,7 @@
  * Agent Rules MCP Server
  * 
  * A Model Context Protocol server that provides development rules and best practices
- * from local markdown files in the rules/ directory.
+ * from a remote GitHub repository.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -18,8 +18,8 @@ import {
 import { RuleManager } from './rule-manager.js';
 import { ErrorHandler, Logger } from './error-handler.js';
 
-// Initialize the rule manager
-const ruleManager = new RuleManager(process.env.RULES_DIRECTORY || './rules');
+// Initialize the rule manager (now uses GitHub repository)
+const ruleManager = new RuleManager();
 
 const server = new Server(
   {
@@ -245,7 +245,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify({
                 domains: [],
                 totalCount: 0,
-                message: 'No rule files found in the rules directory. Add .md files to the rules/ directory to make them available.',
+                message: 'No rule files found in the GitHub repository.',
               }, null, 2),
             },
           ],
@@ -341,7 +341,7 @@ function handleCliArgs() {
 Agent Rules MCP Server v1.0.0
 
 A Model Context Protocol server that provides development rules and best practices
-from local markdown files in the rules/ directory.
+from a remote GitHub repository.
 
 Usage:
   agent-rules-mcp [options]
@@ -350,12 +350,11 @@ Options:
   --help, -h     Show this help message
   --version, -v  Show version information
 
-Environment Variables:
-  RULES_DIRECTORY  Path to the rules directory (default: ./rules)
+The server fetches rules from the remote GitHub repository:
+  https://github.com/4regab/agent-rules-mcp/tree/master/rules
 
 Examples:
-  agent-rules-mcp                    # Start server with default rules directory
-  RULES_DIRECTORY=/path/to/rules agent-rules-mcp  # Start with custom rules directory
+  agent-rules-mcp                    # Start server and fetch from GitHub
 
 The server provides two MCP tools:
   - get_rules(domain)  Get rule content for a specific domain
@@ -378,7 +377,7 @@ async function main() {
   
   try {
     Logger.info('Starting Agent Rules MCP server v1.0.0');
-    Logger.info(`Rules directory: ${ruleManager.getRulesDirectory()}`);
+    Logger.info(`GitHub repository: ${ruleManager.getRulesDirectory()}`);
     Logger.info(`Node.js version: ${process.version}`);
     Logger.info(`Platform: ${process.platform} ${process.arch}`);
     
@@ -387,9 +386,8 @@ async function main() {
     Logger.info(`Found ${domains.length} rule domain${domains.length === 1 ? '' : 's'}`);
     
     if (domains.length === 0) {
-      Logger.warn('No rule files found in the rules directory', {
-        rulesDirectory: ruleManager.getRulesDirectory(),
-        suggestion: 'Add .md files to the rules/ directory to make them available'
+      Logger.warn('No rule files found in the GitHub repository', {
+        repository: ruleManager.getRulesDirectory()
       });
     } else {
       Logger.info(`Available domains: ${domains.map(d => d.domain).join(', ')}`);

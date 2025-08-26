@@ -1,6 +1,3 @@
-import { promises as fs } from 'fs';
-import * as path from 'path';
-
 /**
  * Interface for rule content with metadata
  */
@@ -22,87 +19,122 @@ export interface DomainInfo {
 }
 
 /**
- * RepositoryFileReader handles reading rule files from the rules/ directory
+ * GitHubRepositoryFileReader handles reading rule files from a GitHub repository
  * Provides methods to read specific files, list available files, and check existence
  */
-export class RepositoryFileReader {
-  private rulesDirectory: string;
+export class GitHubRepositoryFileReader {
+  private owner: string;
+  private repo: string;
+  private path: string;
+  private branch: string;
+  private baseUrl: string;
 
-  constructor(rulesDirectory: string = './rules') {
-    this.rulesDirectory = path.resolve(rulesDirectory);
+  constructor(
+    owner?: string,
+    repo?: string,
+    path?: string,
+    branch?: string
+  ) {
+    // Use environment variables with fallback defaults
+    this.owner = owner || process.env.GITHUB_OWNER || '4regab';
+    this.repo = repo || process.env.GITHUB_REPO || 'agent-rules-mcp';
+    this.path = path || process.env.GITHUB_PATH || 'rules';
+    this.branch = branch || process.env.GITHUB_BRANCH || 'master';
+    this.baseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
   }
 
   /**
-   * Read a specific rule file by domain name
+   * Read a specific rule file by domain name from GitHub
    * @param domain - The domain name (filename without .md extension)
    * @returns Promise<string> - The file content
    * @throws Error if file doesn't exist or can't be read
    */
   async readRuleFile(domain: string): Promise<string> {
     try {
-      const filePath = path.join(this.rulesDirectory, `${domain}.md`);
-      const content = await fs.readFile(filePath, 'utf-8');
-      return content;
-    } catch (error) {
-      if (error instanceof Error && 'code' in error) {
-        if (error.code === 'ENOENT') {
+      const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}.md?ref=${this.branch}`;
+      const headers: Record<string, string> = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'agent-rules-mcp'
+      };
+      
+      const response = await fetch(url, { headers });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
           throw new Error(`Rule file not found for domain: ${domain}`);
         }
-        if (error.code === 'EACCES') {
-          throw new Error(`Permission denied reading rule file for domain: ${domain}`);
-        }
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
       }
-      throw new Error(`Failed to read rule file for domain ${domain}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      const data = await response.json() as any;
+      
+      if (data.type !== 'file') {
+        throw new Error(`Expected file but got ${data.type} for domain: ${domain}`);
+      }
+
+      // Decode base64 content
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      return content;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Failed to read rule file for domain ${domain}: ${error}`);
     }
   }
 
   /**
-   * List all available rule files in the rules/ directory
-   * Filters out invalid files and logs errors gracefully
+   * List all available rule files in the GitHub repository
    * @returns Promise<string[]> - Array of domain names (filenames without .md extension)
    */
   async listRuleFiles(): Promise<string[]> {
     try {
-      const files = await fs.readdir(this.rulesDirectory);
+      const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}?ref=${this.branch}`;
+      const headers: Record<string, string> = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'agent-rules-mcp'
+      };
+      
+      const response = await fetch(url, { headers });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`Rules directory not found: ${this.path}`);
+          return [];
+        }
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json() as any[];
+      
+      if (!Array.isArray(data)) {
+        throw new Error('Expected directory listing but got single file');
+      }
+
       const validDomains: string[] = [];
       
-      for (const file of files) {
-        if (!file.endsWith('.md')) {
+      for (const item of data) {
+        if (item.type !== 'file' || !item.name.endsWith('.md')) {
           continue;
         }
         
-        const domain = this.extractDomainFromFilename(file);
+        const domain = this.extractDomainFromFilename(item.name);
         
         // Validate domain name format
         if (!this.isValidDomain(domain)) {
-          console.warn(`Skipping invalid domain name: ${domain} (from file: ${file})`);
+          console.warn(`Skipping invalid domain name: ${domain} (from file: ${item.name})`);
           continue;
         }
         
-        // Try to read and parse the file to ensure it's valid
-        try {
-          const content = await this.readRuleFile(domain);
-          this.parseRuleContent(content, domain); // This will log errors internally if parsing fails
-          validDomains.push(domain);
-        } catch (error) {
-          console.error(`Skipping invalid rule file ${file}:`, error instanceof Error ? error.message : error);
-          // Continue with other files even if one fails
-        }
+        validDomains.push(domain);
       }
       
       return validDomains;
     } catch (error) {
-      if (error instanceof Error && 'code' in error) {
-        if (error.code === 'ENOENT') {
-          // Rules directory doesn't exist, return empty array
-          console.warn(`Rules directory not found: ${this.rulesDirectory}`);
-          return [];
-        }
-        if (error.code === 'EACCES') {
-          throw new Error(`Permission denied accessing rules directory: ${this.rulesDirectory}`);
-        }
+      if (error instanceof Error) {
+        throw error;
       }
-      throw new Error(`Failed to list rule files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to list rule files: ${error}`);
     }
   }
 
@@ -113,9 +145,14 @@ export class RepositoryFileReader {
    */
   async ruleExists(domain: string): Promise<boolean> {
     try {
-      const filePath = path.join(this.rulesDirectory, `${domain}.md`);
-      await fs.access(filePath, fs.constants.F_OK);
-      return true;
+      const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}.md?ref=${this.branch}`;
+      const headers: Record<string, string> = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'agent-rules-mcp'
+      };
+      
+      const response = await fetch(url, { headers });
+      return response.ok;
     } catch {
       return false;
     }
@@ -123,7 +160,6 @@ export class RepositoryFileReader {
 
   /**
    * Parse rule content and extract metadata from markdown
-   * Handles both YAML frontmatter and inline metadata formats
    * @param content - Raw markdown content
    * @param domain - Domain name for the rule
    * @returns RuleContent - Parsed content with metadata
@@ -145,13 +181,12 @@ export class RepositoryFileReader {
         this.parseFrontmatter(frontmatter, ruleContent);
         ruleContent.content = mainContent.trim();
       } else {
-        // Fall back to inline metadata parsing (current format)
+        // Fall back to inline metadata parsing
         this.parseInlineMetadata(content, ruleContent);
       }
 
       return ruleContent;
     } catch (error) {
-      // Handle invalid markdown gracefully - return basic content with error logging
       console.error(`Error parsing markdown for domain ${domain}:`, error instanceof Error ? error.message : error);
       
       return {
@@ -164,8 +199,6 @@ export class RepositoryFileReader {
 
   /**
    * Parse YAML-style frontmatter
-   * @param frontmatter - The frontmatter content
-   * @param ruleContent - The rule content object to populate
    */
   private parseFrontmatter(frontmatter: string, ruleContent: RuleContent): void {
     const lines = frontmatter.split(/\r?\n/);
@@ -197,13 +230,9 @@ export class RepositoryFileReader {
   }
 
   /**
-   * Parse inline metadata (current format with bullet points)
-   * @param content - The full markdown content
-   * @param ruleContent - The rule content object to populate
+   * Parse inline metadata
    */
   private parseInlineMetadata(content: string, ruleContent: RuleContent): void {
-    // Extract metadata from markdown content
-    // Look for patterns like "- Description: ..." handling both Unix and Windows line endings
     const descriptionMatch = content.match(/(?:^|\r?\n)\s*-\s*Description:\s*(.+?)(?:\r?\n|$)/i);
     if (descriptionMatch) {
       ruleContent.description = descriptionMatch[1].trim();
@@ -221,12 +250,9 @@ export class RepositoryFileReader {
   }
 
   /**
-   * Extract domain name from filename (without .md extension)
-   * @param filename - The filename to process
-   * @returns string - The domain name
+   * Extract domain name from filename
    */
   extractDomainFromFilename(filename: string): string {
-    // Remove .md extension if present
     if (filename.endsWith('.md')) {
       return filename.slice(0, -3);
     }
@@ -235,19 +261,15 @@ export class RepositoryFileReader {
 
   /**
    * Validate domain name format
-   * @param domain - The domain name to validate
-   * @returns boolean - True if valid, false otherwise
    */
   isValidDomain(domain: string): boolean {
-    // Domain should be non-empty, contain only alphanumeric characters, hyphens, and underscores
     return /^[a-zA-Z0-9_-]+$/.test(domain) && domain.length > 0;
   }
 
   /**
-   * Get the rules directory path
-   * @returns string - The absolute path to the rules directory
+   * Get the repository information
    */
-  getRulesDirectory(): string {
-    return this.rulesDirectory;
+  getRepositoryInfo(): string {
+    return `${this.owner}/${this.repo}/${this.path} (branch: ${this.branch})`;
   }
 }
