@@ -28,6 +28,7 @@ export class GitHubRepositoryFileReader {
   private path: string;
   private branch: string;
   private baseUrl: string;
+  private token?: string;
 
   constructor(
     owner?: string,
@@ -35,12 +36,21 @@ export class GitHubRepositoryFileReader {
     path?: string,
     branch?: string
   ) {
-    // Use environment variables with fallback defaults
-    this.owner = owner || process.env.GITHUB_OWNER || '4regab';
-    this.repo = repo || process.env.GITHUB_REPO || 'agent-rules-mcp';
-    this.path = path || process.env.GITHUB_PATH || 'rules';
-    this.branch = branch || process.env.GITHUB_BRANCH || 'master';
+    // Use environment variables with generic defaults
+    this.owner = owner || process.env.GITHUB_OWNER || '';
+    this.repo = repo || process.env.GITHUB_REPO || '';
+    this.path = path || process.env.GITHUB_PATH || '';
+    this.branch = branch || process.env.GITHUB_BRANCH || '';
     this.baseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
+    this.token = process.env.GITHUB_TOKEN;
+
+    // Validate required configuration
+    if (!this.owner) {
+      throw new Error('GITHUB_OWNER environment variable is required');
+    }
+    if (!this.repo) {
+      throw new Error('GITHUB_REPO environment variable is required');
+    }
   }
 
   /**
@@ -56,6 +66,11 @@ export class GitHubRepositoryFileReader {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'agent-rules-mcp'
       };
+      
+      // Add GitHub token if available for higher rate limits
+      if (this.token) {
+        headers['Authorization'] = `token ${this.token}`;
+      }
       
       const response = await fetch(url, { headers });
       
@@ -94,6 +109,11 @@ export class GitHubRepositoryFileReader {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'agent-rules-mcp'
       };
+      
+      // Add GitHub token if available for higher rate limits
+      if (this.token) {
+        headers['Authorization'] = `token ${this.token}`;
+      }
       
       const response = await fetch(url, { headers });
       
@@ -150,6 +170,11 @@ export class GitHubRepositoryFileReader {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'agent-rules-mcp'
       };
+      
+      // Add GitHub token if available for higher rate limits
+      if (this.token) {
+        headers['Authorization'] = `token ${this.token}`;
+      }
       
       const response = await fetch(url, { headers });
       return response.ok;

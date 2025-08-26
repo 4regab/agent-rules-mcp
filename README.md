@@ -1,343 +1,214 @@
 # Agent Rules MCP Server
 
-A Model Context Protocol (MCP) server that provides development rules and best practices from local markdown files. This server dynamically loads rules from the `rules/` directory and exposes them through exactly two MCP tools, making it easy for AI agents and developers to access curated development guidance.
+A Model Context Protocol (MCP) server that enables **AI agents to fetch coding rules** from your GitHub repositoriy. Instead of cluttering your workspace with local rule files, you can now prompt AI agents to access the latest coding standards, best practices, and guidelines directly from your GitHub repository through natural language requests.
 
 ## Features
 
-- 🚀 **Simple Setup**: Just add markdown files to the `rules/` directory
-- 🔄 **Dynamic Loading**: Automatically detects new rule files without server restart
-- 🛠️ **Two MCP Tools**: `get_rules(domain)` and `list_rules()` for easy access
-- 📝 **Markdown Format**: Standard markdown with optional metadata
-- 🌐 **Community Driven**: Easy contribution via pull requests
-- 🔒 **Secure**: File-based approach with no external dependencies
-
-## Quick Start
-
-### Installation
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd agent-rules-mcp
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Start the server
-npm start
-```
-
-### Development
-
-```bash
-# Run in development mode with auto-reload
-npm run dev
-
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-```
-
-## MCP Tools
-
-### `get_rules(domain)`
-
-Retrieves rule content for a specific domain.
-
-**Parameters:**
-- `domain` (string): The rule domain to retrieve (filename without .md extension)
-
-**Example Usage:**
-```javascript
-// Get React development rules
-get_rules("react")
-
-// Get security best practices
-get_rules("security")
-
-// Get Next.js with Tailwind rules
-get_rules("nextjs-tailwind")
-```
-
-**Response Format:**
-```json
-{
-  "domain": "react",
-  "content": "# React Development Rules\n\n...",
-  "metadata": {
-    "description": "React development best practices",
-    "lastUpdated": "2025-01-26",
-    "version": "1.0"
-  }
-}
-```
-
-### `list_rules()`
-
-Lists all available rule domains with descriptions.
-
-**Parameters:** None
-
-**Example Usage:**
-```javascript
-list_rules()
-```
-
-**Response Format:**
-```json
-{
-  "domains": [
-    {
-      "domain": "react",
-      "description": "React development best practices",
-      "lastUpdated": "2025-01-26"
-    },
-    {
-      "domain": "security",
-      "description": "Security-first mindset OWASP guideline rules",
-      "lastUpdated": "2025-08-27"
-    }
-  ],
-  "totalCount": 2
-}
-```
-
-## Rule File Format
-
-Rule files are standard markdown files placed in the `rules/` directory. The filename (without `.md` extension) becomes the domain name.
-
-### Basic Structure
-
-```markdown
-# Domain Name Rules
-
-- Last Updated: YYYY-MM-DD
-- Description: Brief description of the rules
-- Version: X.X (optional)
-
-## Rule Content
-
-Your rules, best practices, examples, etc. go here.
-
-### Subsections
-
-You can organize your rules into subsections for better readability.
-```
-
-### Metadata Section
-
-The metadata section at the top of each rule file is optional but recommended:
-
-- **Last Updated**: Date when the rules were last modified (YYYY-MM-DD format)
-- **Description**: Brief description used in `list_rules()` responses
-- **Version**: Version number for tracking changes (optional)
-
-### File Naming Convention
-
-- Use kebab-case for filenames: `nextjs-tailwind.md`, `performance-optimization.md`
-- Avoid spaces and special characters
-- Use descriptive names that clearly indicate the domain
+- **GitHub Integration**: Fetches rules from any GitHub repository in real-time
+- **Simple Setup**: Configure with environment variables, no local files needed
+- **Dynamic Loading**: Automatically fetches latest rules from GitHub
+- **Customizable**: Fork, customize, and contribute via GitHub
+- **Secure**: GitHub API integration with optional token authentication
+- **Configurable**: Support for custom repositories, branches, and paths
 
 ## MCP Client Configuration
 
-### Claude Desktop Configuration
+### Using the Published Package (Recommended)
 
-Add to your Claude Desktop configuration file:
-
-```json
-{
-  "mcpServers": {
-    "agent-rules": {
-      "command": "node",
-      "args": ["/path/to/agent-rules-mcp/dist/index.js"],
-      "env": {
-        "RULES_DIRECTORY": "/path/to/agent-rules-mcp/rules"
-      }
-    }
-  }
-}
-```
-
-### Generic MCP Client Configuration
-
-```json
-{
-  "servers": {
-    "agent-rules-mcp": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "cwd": "/path/to/agent-rules-mcp",
-      "env": {
-        "RULES_DIRECTORY": "./rules",
-        "LOG_LEVEL": "info"
-      }
-    }
-  }
-}
-```
-
-### Using with uvx (Python Package Manager)
-
-If you publish this as a Python package, users can run it with:
+Add this configuration to your MCP client (Claude Desktop, etc.):
 
 ```json
 {
   "mcpServers": {
     "agent-rules": {
-      "command": "uvx",
+      "command": "npx",
       "args": ["agent-rules-mcp@latest"],
       "env": {
-        "RULES_DIRECTORY": "./rules"
-      }
+        "GITHUB_OWNER": "4regab",
+        "GITHUB_REPO": "agent-rules-mcp",
+        "GITHUB_PATH": "rules",
+        "GITHUB_BRANCH": "master",
+        "GITHUB_TOKEN": "ghp_your_personal_access_token"
+      },
+      "disabled": false
     }
   }
 }
 ```
 
-## Environment Variables
+## Available Tools
 
-Configure the server using these environment variables:
+#### `get_rules` - Retrieves rule content for one or multiple domains from the GitHub repository rules folder.
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `RULES_DIRECTORY` | Path to the rules directory | `"./rules"` | `"/path/to/rules"` |
-| `LOG_LEVEL` | Logging level | `"info"` | `"debug"`, `"warn"`, `"error"` |
-| `MAX_FILE_SIZE` | Maximum rule file size in bytes | `1048576` (1MB) | `2097152` (2MB) |
-| `CACHE_TTL` | Cache time-to-live in seconds | `0` (no TTL) | `300` (5 minutes) |
+#### `list_rules` - Lists all available rule domains with descriptions.
 
-### Setting Environment Variables
+### Repository Structure
 
-**Linux/macOS:**
-```bash
-export RULES_DIRECTORY="/path/to/my/rules"
-export LOG_LEVEL="debug"
-npm start
+```
+agent-rules-mcp/
+├── rules/                    # Default path (configurable)
+│   ├── react.md             # Domain: "react"
+│   ├── security.md          # Domain: "security"
+│   ├── nextjs-tailwind.md   # Domain: "nextjs-tailwind"
+│   ├── python-best.md       # Domain: "python-best"
+│   └── typescript.md        # Domain: "typescript"
+├── README.md
+└── .gitignore
 ```
 
-**Windows:**
-```cmd
-set RULES_DIRECTORY=C:\path\to\my\rules
-set LOG_LEVEL=debug
-npm start
+### Using Your Own Rules Repository
+
+To use your own GitHub repository instead of the default:
+
+```json
+{
+  "mcpServers": {
+    "agentrules": {
+      "command": "npx",
+      "args": ["agent-rules-mcp@latest"],
+      "env": {
+        "GITHUB_OWNER": "your-username",
+        "GITHUB_REPO": "your-rules-repo",
+        "GITHUB_PATH": "rules",
+        "GITHUB_BRANCH": "main",
+        "GITHUB_TOKEN": "ghp_your_personal_access_token"
+      },
+      "disabled": false
+    }
+  }
+}
 ```
 
-**Using .env file:**
-Create a `.env` file in the project root:
-```env
-RULES_DIRECTORY=./rules
-LOG_LEVEL=info
-MAX_FILE_SIZE=1048576
+### GitHub Token (Recommended)
+
+While optional, a GitHub token is **highly recommended** to avoid rate limiting:
+
+- **Without token**: 60 requests/hour per IP
+- **With token**: 5,000 requests/hour per token
+
+**Create a GitHub Personal Access Token:**
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens
+2. Generate new token (classic)
+3. Select scopes: `public_repo` (for public repos) or `repo` (for private repos)
+4. Copy the token and set it as `GITHUB_TOKEN`
+
+## Use Your Own Agent Rules
+
+### Option 1: Fork the Default Repository
+
+1. **Fork this repository** on GitHub
+2. **Add your own rules** to the `rules/` directory
+3. **Configure your MCP client** to use your fork
+
+### Option 2: Create Your Own Rules Repository
+
+1. **Create a new GitHub repository** (public or private)
+2. **Create a rules directory** (or use any path you prefer)
+3. **Add your rule files** following the format above
+4. **Configure the MCP server** to use your repository
+
+**Example repository structure:**
+
+```
+my-coding-rules/
+├── rules/
+│   ├── python-style.md
+│   ├── react-patterns.md
+│   ├── security-checklist.md
+│   └── api-design.md
+├── README.md
+└── .gitignore
 ```
 
-## Contributing
+## Contributing to the Default Repository
 
-We welcome contributions! Here's how to add new rule domains:
-
-### Adding New Rules
-
-1. **Fork the repository** and create a new branch
-2. **Create a new rule file** in the `rules/` directory:
-   ```bash
-   touch rules/your-domain.md
-   ```
-3. **Follow the rule file format** (see above)
-4. **Test your rules** locally:
-   ```bash
-   npm run dev
-   # Test with your MCP client
-   ```
-5. **Submit a pull request** with your changes
+We welcome contributions to the default rule repository!
 
 ### Contribution Guidelines
 
 - **Clear Domain Names**: Use descriptive, kebab-case filenames
 - **Complete Metadata**: Include description and last updated date
-- **Quality Content**: Provide actionable, well-organized rules
+- **Quality Content**: Provide actionable, well-organized rules with examples
 - **Test Locally**: Verify your rules work with the MCP server
-- **Follow Format**: Use the standard markdown structure
+- **Follow Format**: Use standard markdown structure
 
 ### Example Contribution
 
-```markdown
-# Python Best Practices
+````markdown
+# Python Development Rules
 
 - Last Updated: 2025-01-26
-- Description: Python development best practices and conventions
+- Description: Python development best practices and PEP compliance guidelines
 - Version: 1.0
 
 ## Code Style
 
 ### PEP 8 Compliance
-- Use 4 spaces for indentation
-- Limit lines to 79 characters
+
+- Use 4 spaces for indentation (never tabs)
+- Limit lines to 79 characters for code, 72 for comments
 - Use snake_case for variables and functions
+- Use UPPER_CASE for constants
 
-### Type Hints
-- Always use type hints for function parameters and return values
-- Use `typing` module for complex types
+```python
+# Good: Proper naming and formatting
+def calculate_total_price(item_count: int, unit_price: float) -> float:
+    """Calculate the total price for items."""
+    return item_count * unit_price
+
+MAX_RETRY_ATTEMPTS = 3
+user_profile = get_user_profile()
+
+# Bad: Poor naming and formatting
+def calculateTotalPrice(itemCount,unitPrice):
+    return itemCount*unitPrice...
 ```
+````
 
-## Troubleshooting
+## Testing GitHub Configuration
 
-### Common Issues
-
-**Server won't start:**
-- Check that Node.js version is 18.0.0 or higher
-- Verify all dependencies are installed: `npm install`
-- Check that the rules directory exists and is readable
-
-**Rules not loading:**
-- Verify rule files are in the correct directory
-- Check file permissions are readable
-- Ensure markdown files have `.md` extension
-- Check server logs for parsing errors
-
-**MCP client connection issues:**
-- Verify the server is running on the expected port
-- Check MCP client configuration matches server setup
-- Ensure environment variables are set correctly
-
-### Debug Mode
-
-Enable debug logging to troubleshoot issues:
+Test your GitHub configuration before using with MCP:
 
 ```bash
-LOG_LEVEL=debug npm start
+# Test repository access
+curl -H "Authorization: token YOUR_TOKEN" \
+  https://api.github.com/repos/OWNER/REPO/contents/PATH
+
+# Example
+curl -H "Authorization: token ghp_xxxx" \
+  https://api.github.com/repos/4regab/agent-rules-mcp/contents/rules
 ```
 
-This will show detailed information about:
-- Rule file loading and parsing
-- MCP tool invocations
-- Error conditions and stack traces
+## Use Cases
 
-## Architecture
+### 🎯 Primary Use Case: On-Demand Rule Access for AI Agents
 
-The server follows a simple, file-based architecture:
+This MCP server eliminates the need for local rule files in your workspace. Instead of copying coding standards into each project, developers can now **prompt AI agents to fetch specific coding rules on-demand** from centralized GitHub repositories.
+
+**Before (Traditional Approach):**
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   MCP Client    │───▶│  MCP Server      │───▶│  Rule Manager   │
-│                 │    │  (2 tools only) │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                         │
-                                                         ▼
-                                               ┌─────────────────┐
-                                               │ Repository      │
-                                               │ File Reader     │
-                                               └─────────────────┘
-                                                         │
-                                                         ▼
-                                               ┌─────────────────┐
-                                               │ rules/          │
-                                               │ ├── react.md    │
-                                               │ ├── security.md │
-                                               │ └── ...         │
-                                               └─────────────────┘
+my-project/
+├──rules                  ← Local rule files needed
+│   ├── react-rules.md
+│   ├── security-rules.md
+│   └── typescript-rules.md
+├── src/
+└── package.json
+```
+
+**After (agent-rules MCP Approach):**
+
+```
+my-project/
+├── src/
+└── package.json          ← Clean workspace, no local rules needed
+
+# In Coding Agent:
+"Apply React best practices to this component"
+→ Agent automatically fetches latest React rules from GitHub
+→ Agent applies rules without you managing local files
 ```
 
 ## License

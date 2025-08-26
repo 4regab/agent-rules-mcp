@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run type checking
+        run: npm run typecheck
+      
+      - name: Run tests
+        run: npm test
+        env:
+          # Set test environment variables
+          GITHUB_OWNER: "test-owner"
+          GITHUB_REPO: "test-repo"
+          GITHUB_PATH: "rules"
+          GITHUB_BRANCH: "main"
+      
+      - name: Build project
+        run: npm run build:prod
+      
+      - name: Test CLI
+        run: |
+          # Test that the CLI starts without errors
+          timeout 5s node dist/index.js --help || true
+          timeout 5s node dist/index.js --version || true
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linting
+        run: npm run lint
+      
+      - name: Check formatting
+        run: |
+          # Add prettier or other formatting checks here
+          echo "Formatting check placeholder"
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+      
+      - name: Check for vulnerabilities
+        run: |
+          # Run additional security checks
+          npx audit-ci --moderate

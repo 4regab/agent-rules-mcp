@@ -39,7 +39,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'get_rules',
-        description: 'Get rule content for one or multiple domains',
+        description: `Retrieves development rules and best practices for specific domains from a curated GitHub repository.
+You MUST call 'list_rules' first to see available domains UNLESS you already know the exact domain name.
+Selection Process:
+1. Analyze the request to understand what development domain/technology the user needs rules for
+2. Return the most relevant rule content based on:
+   - Exact domain name match (e.g., "react", "security", "typescript")
+   - Content relevance to the user's development context
+   - Comprehensive coverage of best practices and guidelines
+For ambiguous requests, request clarification before proceeding with a best-guess match.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -63,7 +71,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'list_rules',
-        description: 'List all available rule domains with descriptions',
+        description: `Lists all available development rule domains with descriptions and metadata from the GitHub repository.
+
+This function provides a comprehensive overview of all available rule sets, helping users discover relevant development guidelines and best practices.
+
+Discovery Process:
+1. Scans the rules folder in repository for all available rule files
+2. Extracts metadata including descriptions and last updated timestamps
+3. Returns organized list with domain names matching filename conventions
+
+Response Format:
+- Returns {domains: [{domain, description, lastUpdated}], totalCount, message} object
+- Each domain entry includes:
+  - domain: The exact name to use with 'get_rules' (matches .md filename without extension)
+  - description: Human-readable summary of what the rules cover
+  - lastUpdated: When the rules were last modified (if available)
+
+Usage:
+- Call this function first to explore available rule domains
+- Use the returned domain names exactly as shown when calling 'get_rules'
+- Review descriptions to find the most relevant rules for your development context
+
+No parameters required - simply call list_rules() to see all available options.`,
         inputSchema: {
           type: 'object',
           properties: {},
@@ -192,7 +221,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (successfulResults.length === 0) {
         const availableDomains = await ruleManager.listAvailableDomains();
         const domainList = availableDomains.map(d => d.domain).join(', ');
-        
+
         throw ErrorHandler.createMcpError(
           ErrorCode.InvalidParams,
           `No rules found for any of the requested domains: ${failedDomains.join(', ')}`,
@@ -207,19 +236,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // Return results with simplified format (title and content only)
-      const responseData = domainsToProcess.length === 1 
+      const responseData = domainsToProcess.length === 1
         ? {
-            title: successfulResults[0].domain,
-            content: successfulResults[0].content
-          }
+          title: successfulResults[0].domain,
+          content: successfulResults[0].content
+        }
         : {
-            rules: successfulResults.map(rule => ({
-              title: rule.domain,
-              content: rule.content
-            })),
-            total: successfulResults.length,
-            ...(failedDomains.length > 0 && { failed: failedDomains })
-          };
+          rules: successfulResults.map(rule => ({
+            title: rule.domain,
+            content: rule.content
+          })),
+          total: successfulResults.length,
+          ...(failedDomains.length > 0 && { failed: failedDomains })
+        };
 
       return {
         content: [
@@ -233,10 +262,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === 'list_rules') {
       // No input validation needed for list_rules as it takes no parameters
-      
+
       // Get all available domains
       const domains = await ruleManager.listAvailableDomains();
-      
+
       if (domains.length === 0) {
         return {
           content: [
@@ -300,15 +329,15 @@ async function gracefulShutdown(signal: string) {
   if (isShuttingDown) {
     return;
   }
-  
+
   isShuttingDown = true;
   Logger.info(`Received ${signal}, shutting down gracefully...`);
-  
+
   try {
     // Clear any caches
     ruleManager.clearCache();
     Logger.info('Cache cleared during shutdown');
-    
+
     // Exit gracefully
     process.exit(0);
   } catch (error) {
@@ -335,7 +364,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // CLI argument handling
 function handleCliArgs() {
   const args = process.argv.slice(2);
-  
+
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
 Agent Rules MCP Server v1.0.0
@@ -350,8 +379,8 @@ Options:
   --help, -h     Show this help message
   --version, -v  Show version information
 
-The server fetches rules from the remote GitHub repository:
-  https://github.com/4regab/agent-rules-mcp/tree/master/rules
+The server fetches rules from a configurable GitHub repository.
+Configure via environment variables: GITHUB_OWNER, GITHUB_REPO, GITHUB_PATH, GITHUB_BRANCH
 
 Examples:
   agent-rules-mcp                    # Start server and fetch from GitHub
@@ -360,11 +389,11 @@ The server provides two MCP tools:
   - get_rules(domain)  Get rule content for a specific domain
   - list_rules()       List all available rule domains
 
-For more information, visit: https://github.com/your-org/agent-rules-mcp
+For more information, visit: https://github.com/4regab/agent-rules-mcp
 `);
     process.exit(0);
   }
-  
+
   if (args.includes('--version') || args.includes('-v')) {
     console.log('agent-rules-mcp v1.0.0');
     process.exit(0);
@@ -374,17 +403,17 @@ For more information, visit: https://github.com/your-org/agent-rules-mcp
 async function main() {
   // Handle CLI arguments first
   handleCliArgs();
-  
+
   try {
     Logger.info('Starting Agent Rules MCP server v1.0.0');
     Logger.info(`GitHub repository: ${ruleManager.getRulesDirectory()}`);
     Logger.info(`Node.js version: ${process.version}`);
     Logger.info(`Platform: ${process.platform} ${process.arch}`);
-    
+
     // Validate rules directory exists and is accessible
     const domains = await ruleManager.listAvailableDomains();
     Logger.info(`Found ${domains.length} rule domain${domains.length === 1 ? '' : 's'}`);
-    
+
     if (domains.length === 0) {
       Logger.warn('No rule files found in the GitHub repository', {
         repository: ruleManager.getRulesDirectory()
@@ -392,14 +421,14 @@ async function main() {
     } else {
       Logger.info(`Available domains: ${domains.map(d => d.domain).join(', ')}`);
     }
-    
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    
+
     Logger.info('✓ Agent Rules MCP server running on stdio');
     Logger.info('Server ready to accept MCP requests');
     Logger.info('Use Ctrl+C to stop the server');
-    
+
   } catch (error) {
     Logger.error('Failed to start server', error);
     process.exit(1);
