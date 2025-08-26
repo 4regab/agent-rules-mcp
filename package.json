@@ -18,7 +18,7 @@
     "test:coverage": "vitest --run --coverage",
     "clean": "rimraf dist",
     "prepack": "npm run build:prod",
-    "lint": "echo 'Linting not configured yet'",
+    "lint": "echo 'TypeScript compilation serves as linting' && npm run typecheck",
     "typecheck": "tsc --noEmit",
     "prepare": "npm run build:prod"
   },
