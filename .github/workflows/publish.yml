@@ -134,6 +134,16 @@ jobs:
           echo "Registry: $(npm config get registry)"
           echo "Auth configured: $(test -f ~/.npmrc && echo 'Yes' || echo 'No')"
           
+      - name: Check NPM authentication
+        run: |
+          echo "Testing NPM authentication..."
+          npm whoami || echo "NPM authentication failed"
+          
+      - name: Check if version already exists
+        run: |
+          echo "Checking if version already exists..."
+          npm view agent-rules-mcp@$(npm pkg get version --workspaces=false | tr -d '"') || echo "Version does not exist, proceeding with publish"
+          
       - name: Publish to NPM
         run: npm publish
         env:
