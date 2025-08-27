@@ -10,11 +10,41 @@ MCP server that enables **agents to fetch coding rules** from your GitHub reposi
 - **Customizable**: Fork, customize, and contribute via GitHub
 - **Secure**: GitHub API integration with optional token authentication
 - **Configurable**: Support for custom repositories, branches, and paths
+- **Community Rules**: Works with existing collections like [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules)
+- **Flexible Format**: Supports any markdown files (.md/.mdc) with or without metadata
+
+## Quick Start with Awesome Cursor Rules
+
+Get instant access to hundreds of community-maintained coding rules:
+
+1. **Add to your MCP configuration:**
+   ```json
+   {
+     "mcpServers": {
+       "cursor-rules": {
+         "command": "npx",
+         "args": ["agent-rules-mcp@latest"],
+         "env": {
+           "GITHUB_OWNER": "PatrickJS",
+           "GITHUB_REPO": "awesome-cursorrules",
+           "GITHUB_PATH": "rules",
+           "GITHUB_BRANCH": "main"
+         }
+       }
+     }
+   }
+   ```
+
+2. **Start using in your AI agent:**
+   - "Apply the React rules"
+   - "Show me the Python best practices"
+   - "Get all available coding standards"
 
 ## MCP Client Configuration
 
 Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.):
 
+**Option A: Use Default Rules Collection**
 ```json
 {
   "mcpServers": {
@@ -26,6 +56,26 @@ Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.
         "GITHUB_REPO": "agent-rules-mcp",
         "GITHUB_PATH": "rules",
         "GITHUB_BRANCH": "master",
+        "GITHUB_TOKEN": "ghp_your_personal_access_token"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+**Option B: Use Awesome Cursor Rules Collection**
+```json
+{
+  "mcpServers": {
+    "cursor-rules": {
+      "command": "npx",
+      "args": ["agent-rules-mcp@latest"],
+      "env": {
+        "GITHUB_OWNER": "PatrickJS",
+        "GITHUB_REPO": "awesome-cursorrules",
+        "GITHUB_PATH": "rules",
+        "GITHUB_BRANCH": "main",
         "GITHUB_TOKEN": "ghp_your_personal_access_token"
       },
       "disabled": false
@@ -90,6 +140,41 @@ While optional, a GitHub token is **highly recommended** to avoid rate limiting:
 2. **Create a rules directory** (or use any path you prefer)
 3. **Add your rule files** following the format above
 4. **Configure the MCP server** to use your repository
+
+### Option 3: Use Existing Rule Collections
+
+You can point the MCP server to any existing GitHub repository with markdown rules, such as the excellent [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) collection:
+
+```json
+{
+  "mcpServers": {
+    "cursor-rules": {
+      "command": "npx",
+      "args": ["agent-rules-mcp@latest"],
+      "env": {
+        "GITHUB_OWNER": "PatrickJS",
+        "GITHUB_REPO": "awesome-cursorrules",
+        "GITHUB_PATH": "rules",
+        "GITHUB_BRANCH": "main",
+        "GITHUB_TOKEN": "ghp_your_personal_access_token"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+**Other popular rule repositories you can use:**
+- [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules/tree/main/rules) - Comprehensive collection of Cursor IDE rules
+- Any documentation repository with markdown files
+- Your team's existing coding standards repository
+- Open source project style guides
+
+**Benefits of using existing collections:**
+- ✅ **Instant access** to hundreds of pre-written rules
+- ✅ **Community maintained** and regularly updated
+- ✅ **No setup required** - just point and use
+- ✅ **Flexible parsing** works with any markdown structure
 
 **Example repository structure:**
 
@@ -185,6 +270,11 @@ my-project/
 "Apply React best practices to this component"
 → Agent automatically fetches latest React rules from GitHub
 → Agent applies rules without you managing local files
+
+# Example with awesome-cursorrules:
+"Apply the Next.js rules from awesome-cursorrules"
+→ Agent fetches specific rules from PatrickJS/awesome-cursorrules
+→ Instant access to community-maintained best practices
 ```
 
 ## License
