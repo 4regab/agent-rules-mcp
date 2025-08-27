@@ -52,7 +52,7 @@ To use your own GitHub repository instead of the default:
       "env": {
         "GITHUB_OWNER": "your-username",
         "GITHUB_REPO": "your-rules-repo",
-        "GITHUB_PATH": "youre-rules-folder",
+        "GITHUB_PATH": "your-rules-folder",
         "GITHUB_BRANCH": "main",
         "GITHUB_TOKEN": "ghp_your_personal_access_token"
       },
@@ -62,7 +62,7 @@ To use your own GitHub repository instead of the default:
 }
 ```
 
-### GitHub Token (Recommended)
+### GitHub Token (Highly Recommended)
 
 While optional, a GitHub token is **highly recommended** to avoid rate limiting:
 
@@ -82,7 +82,7 @@ While optional, a GitHub token is **highly recommended** to avoid rate limiting:
 
 1. **Fork this repository** on GitHub
 2. **Add your own rules** to the `rules/` directory
-3. **Configure your MCP client** to use your fork
+3. **Configure your MCP server settings env** to use your repository
 
 ### Option 2: Create Your Own Rules Repository
 
