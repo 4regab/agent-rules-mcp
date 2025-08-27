@@ -1,6 +1,6 @@
 # Agent Rules MCP Server
 
-MCP server that enables **agents to fetch coding rules** from your GitHub repositoriy. Instead of cluttering your workspace with local rule files, you can now prompt AI agents to access the latest coding standards, best practices, and guidelines directly from your GitHub repository through natural language requests.
+MCP server that enables **agents to fetch coding rules** from your GitHub repository. Instead of cluttering your workspace with local rule files, you can now prompt AI agents to access the latest coding standards, best practices, and guidelines directly from your GitHub repository through natural language requests.
 
 ## Features
 
