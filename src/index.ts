@@ -41,6 +41,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: 'get_rules',
         description: `Retrieves development rules and best practices for specific domains from GitHub repository rules folder.
 
+Supports both .md and .mdc markdown files with flexible structure - works with any markdown content even without specific metadata.
+
 IMPORTANT: When users request "apply all rules" or "get all rules", use the 'domains' parameter with ALL available domain names from list_rules to return every rule at once.
 
 You MUST call 'list_rules' first to see available domains UNLESS you already know the exact domain names.
@@ -84,19 +86,22 @@ For ambiguous requests, request clarification before proceeding with a best-gues
         name: 'list_rules',
         description: `Lists all available development rule domains with descriptions and metadata from the GitHub repository.
 
+Supports both .md and .mdc markdown files with flexible metadata extraction - automatically generates descriptions even for files without explicit metadata.
+
 This function provides a comprehensive overview of all available rule sets, helping users discover relevant development guidelines and best practices.
 
 Discovery Process:
-1. Scans the rules folder in repository for all available rule files
-2. Extracts metadata including descriptions and last updated timestamps
-3. Returns organized list with domain names matching filename conventions
+1. Scans the rules folder in repository for all available .md and .mdc files
+2. Extracts metadata including descriptions and last updated timestamps (when available)
+3. Auto-generates descriptions from content when explicit metadata is missing
+4. Returns organized list with domain names matching filename conventions
 
 Response Format:
 - Returns {domains: [{domain, description, lastUpdated}], totalCount, message} object
 - Each domain entry includes:
-  - domain: The exact name to use with 'get_rules' (matches .md filename without extension)
-  - description: Human-readable summary of what the rules cover
-  - lastUpdated: When the rules were last modified (if available)
+  - domain: The exact name to use with 'get_rules' (matches filename without .md/.mdc extension)
+  - description: Human-readable summary of what the rules cover (extracted or auto-generated)
+  - lastUpdated: When the rules were last modified (if available in metadata)
 
 Usage:
 - Call this function first to explore available rule domains

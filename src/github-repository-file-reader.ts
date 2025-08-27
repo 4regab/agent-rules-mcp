@@ -1,5 +1,6 @@
 /**
  * Interface for rule content with metadata
+ * Supports both .md and .mdc files with flexible metadata parsing
  */
 export interface RuleContent {
   domain: string;
@@ -20,6 +21,7 @@ export interface DomainInfo {
 
 /**
  * GitHubRepositoryFileReader handles reading rule files from a GitHub repository
+ * Supports both .md and .mdc files with flexible metadata parsing
  * Provides methods to read specific files, list available files, and check existence
  */
 export class GitHubRepositoryFileReader {
@@ -55,41 +57,51 @@ export class GitHubRepositoryFileReader {
 
   /**
    * Read a specific rule file by domain name from GitHub
-   * @param domain - The domain name (filename without .md extension)
+   * @param domain - The domain name (filename without .md/.mdc extension)
    * @returns Promise<string> - The file content
    * @throws Error if file doesn't exist or can't be read
    */
   async readRuleFile(domain: string): Promise<string> {
     try {
-      const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}.md?ref=${this.branch}`;
-      const headers: Record<string, string> = {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'agent-rules-mcp'
-      };
+      // Try both .md and .mdc extensions
+      const extensions = ['.md', '.mdc'];
+      let lastError: Error | null = null;
       
-      // Add GitHub token if available for higher rate limits
-      if (this.token) {
-        headers['Authorization'] = `token ${this.token}`;
-      }
-      
-      const response = await fetch(url, { headers });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(`Rule file not found for domain: ${domain}`);
+      for (const ext of extensions) {
+        try {
+          const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}${ext}?ref=${this.branch}`;
+          const headers: Record<string, string> = {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'agent-rules-mcp'
+          };
+          
+          // Add GitHub token if available for higher rate limits
+          if (this.token) {
+            headers['Authorization'] = `token ${this.token}`;
+          }
+          
+          const response = await fetch(url, { headers });
+          
+          if (response.ok) {
+            const data = await response.json() as any;
+            
+            if (data.type !== 'file') {
+              throw new Error(`Expected file but got ${data.type} for domain: ${domain}`);
+            }
+
+            // Decode base64 content
+            const content = Buffer.from(data.content, 'base64').toString('utf-8');
+            return content;
+          } else if (response.status !== 404) {
+            throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+          }
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
         }
-        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
       }
-
-      const data = await response.json() as any;
       
-      if (data.type !== 'file') {
-        throw new Error(`Expected file but got ${data.type} for domain: ${domain}`);
-      }
-
-      // Decode base64 content
-      const content = Buffer.from(data.content, 'base64').toString('utf-8');
-      return content;
+      // If we get here, neither extension worked
+      throw new Error(`Rule file not found for domain: ${domain} (tried .md and .mdc extensions)`);
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -100,7 +112,7 @@ export class GitHubRepositoryFileReader {
 
   /**
    * List all available rule files in the GitHub repository
-   * @returns Promise<string[]> - Array of domain names (filenames without .md extension)
+   * @returns Promise<string[]> - Array of domain names (filenames without .md/.mdc extension)
    */
   async listRuleFiles(): Promise<string[]> {
     try {
@@ -134,7 +146,7 @@ export class GitHubRepositoryFileReader {
       const validDomains: string[] = [];
       
       for (const item of data) {
-        if (item.type !== 'file' || !item.name.endsWith('.md')) {
+        if (item.type !== 'file' || !(item.name.endsWith('.md') || item.name.endsWith('.mdc'))) {
           continue;
         }
         
@@ -165,19 +177,28 @@ export class GitHubRepositoryFileReader {
    */
   async ruleExists(domain: string): Promise<boolean> {
     try {
-      const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}.md?ref=${this.branch}`;
-      const headers: Record<string, string> = {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'agent-rules-mcp'
-      };
+      // Check both .md and .mdc extensions
+      const extensions = ['.md', '.mdc'];
       
-      // Add GitHub token if available for higher rate limits
-      if (this.token) {
-        headers['Authorization'] = `token ${this.token}`;
+      for (const ext of extensions) {
+        const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}${ext}?ref=${this.branch}`;
+        const headers: Record<string, string> = {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'agent-rules-mcp'
+        };
+        
+        // Add GitHub token if available for higher rate limits
+        if (this.token) {
+          headers['Authorization'] = `token ${this.token}`;
+        }
+        
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          return true;
+        }
       }
       
-      const response = await fetch(url, { headers });
-      return response.ok;
+      return false;
     } catch {
       return false;
     }
@@ -210,6 +231,11 @@ export class GitHubRepositoryFileReader {
         this.parseInlineMetadata(content, ruleContent);
       }
 
+      // If no description was found, generate one from the content
+      if (!ruleContent.description) {
+        ruleContent.description = this.generateDescriptionFromContent(content, domain);
+      }
+
       return ruleContent;
     } catch (error) {
       console.error(`Error parsing markdown for domain ${domain}:`, error instanceof Error ? error.message : error);
@@ -217,7 +243,7 @@ export class GitHubRepositoryFileReader {
       return {
         domain,
         content: content.trim(),
-        description: `Rules for ${domain} (parsing error - metadata unavailable)`
+        description: this.generateDescriptionFromContent(content, domain)
       };
     }
   }
@@ -281,6 +307,9 @@ export class GitHubRepositoryFileReader {
     if (filename.endsWith('.md')) {
       return filename.slice(0, -3);
     }
+    if (filename.endsWith('.mdc')) {
+      return filename.slice(0, -4);
+    }
     return filename;
   }
 
@@ -289,6 +318,40 @@ export class GitHubRepositoryFileReader {
    */
   isValidDomain(domain: string): boolean {
     return /^[a-zA-Z0-9_-]+$/.test(domain) && domain.length > 0;
+  }
+
+  /**
+   * Generate a description from the content when no explicit description is found
+   */
+  private generateDescriptionFromContent(content: string, domain: string): string {
+    try {
+      // Try to extract the first heading as a title/description
+      const headingMatch = content.match(/^#\s+(.+?)(?:\r?\n|$)/m);
+      if (headingMatch) {
+        const title = headingMatch[1].trim();
+        // If the title is different from the domain, use it as description
+        if (title.toLowerCase() !== domain.toLowerCase()) {
+          return title;
+        }
+      }
+
+      // Try to find the first paragraph after headings
+      const paragraphMatch = content.match(/(?:^|\r?\n)(?!#)([^\r\n]+(?:\r?\n(?!#)[^\r\n]+)*)/m);
+      if (paragraphMatch) {
+        const paragraph = paragraphMatch[1].trim();
+        // Take first sentence or first 100 characters
+        const firstSentence = paragraph.split(/[.!?]/)[0];
+        if (firstSentence && firstSentence.length > 10) {
+          return firstSentence.trim() + (firstSentence.length < paragraph.length ? '...' : '');
+        }
+      }
+
+      // Fallback: generate description based on domain name
+      return `Development rules and guidelines for ${domain.replace(/[-_]/g, ' ')}`;
+    } catch (error) {
+      // Ultimate fallback
+      return `Rules for ${domain}`;
+    }
   }
 
   /**

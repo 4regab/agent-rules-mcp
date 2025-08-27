@@ -96,10 +96,11 @@ While optional, a GitHub token is **highly recommended** to avoid rate limiting:
 ```
 my-coding-rules/
 ├── rules/
-│   ├── python-style.md
-│   ├── react-patterns.md
-│   ├── security-checklist.md
-│   └── api-design.md
+│   ├── python-style.md          # Standard markdown with metadata
+│   ├── react-patterns.mdc       # MDC format supported
+│   ├── security-checklist.md    # With YAML frontmatter
+│   ├── api-design.md           # Simple markdown (no metadata required)
+│   └── legacy-docs.md          # Any existing markdown works
 ├── README.md
 └── .gitignore
 ```
@@ -116,9 +117,11 @@ We welcome contributions to the default rule repository!
 - **Test Locally**: Verify your rules work with the MCP server
 - **Follow Format**: Use standard markdown structure
 
-### Required Structure
+### File Format Support
 
-Every rule file must follow this structure:
+The MCP server supports both `.md` and `.mdc` markdown files with flexible structure:
+
+**Recommended Structure (for optimal metadata extraction):**
 
 ```markdown
 # Title of the coding rules
@@ -128,7 +131,30 @@ Every rule file must follow this structure:
 - Version: X.X (optional, for tracking major changes)
 
 ## Instructions
-````
+```
+
+**Alternative: YAML Frontmatter:**
+
+```markdown
+---
+description: Brief description of the rules
+last_updated: YYYY-MM-DD
+version: 1.0
+---
+
+# Title of the coding rules
+
+## Instructions
+```
+
+**Flexible Support:**
+
+The server also works with any markdown file, even without specific metadata. If no description is provided, it will:
+- Extract the first heading as a title
+- Use the first paragraph as a description
+- Generate a fallback description based on the filename
+
+This means you can use any existing markdown documentation as rules without modification.
 
 ## How It Helps
 
