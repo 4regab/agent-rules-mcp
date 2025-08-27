@@ -116,37 +116,18 @@ We welcome contributions to the default rule repository!
 - **Test Locally**: Verify your rules work with the MCP server
 - **Follow Format**: Use standard markdown structure
 
-### Example Contribution
+### Required Structure
 
-````markdown
-# Python Development Rules
+Every rule file must follow this structure:
 
-- Last Updated: 2025-01-26
-- Description: Python development best practices and PEP compliance guidelines
-- Version: 1.0
+```markdown
+# Title of the coding rules
 
-## Code Style
+- Last Updated: YYYY-MM-DD
+- Description: Brief description of the rules (used in list_rules() responses)
+- Version: X.X (optional, for tracking major changes)
 
-### PEP 8 Compliance
-
-- Use 4 spaces for indentation (never tabs)
-- Limit lines to 79 characters for code, 72 for comments
-- Use snake_case for variables and functions
-- Use UPPER_CASE for constants
-
-```python
-# Good: Proper naming and formatting
-def calculate_total_price(item_count: int, unit_price: float) -> float:
-    """Calculate the total price for items."""
-    return item_count * unit_price
-
-MAX_RETRY_ATTEMPTS = 3
-user_profile = get_user_profile()
-
-# Bad: Poor naming and formatting
-def calculateTotalPrice(itemCount,unitPrice):
-    return itemCount*unitPrice...
-```
+## Instructions
 ````
 
 ## How It Helps
