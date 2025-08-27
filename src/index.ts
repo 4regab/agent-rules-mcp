@@ -39,14 +39,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'get_rules',
-        description: `Retrieves development rules and best practices for specific domains from a curated GitHub repository.
-You MUST call 'list_rules' first to see available domains UNLESS you already know the exact domain name.
+        description: `Retrieves development rules and best practices for specific domains from GitHub repository rules folder.
+
+IMPORTANT: When users request "apply all rules" or "get all rules", use the 'domains' parameter with ALL available domain names from list_rules to return every rule at once.
+
+You MUST call 'list_rules' first to see available domains UNLESS you already know the exact domain names.
+
+Usage Patterns:
+- Single domain: {"domain": "react"} - Gets one specific rule set
+- Multiple domains: {"domains": ["react", "security", "typescript"]} - Gets multiple specific rule sets  
+- ALL rules: {"domains": ["domain1", "domain2", "domain3", ...]} - Gets every available rule (use ALL domain names from list_rules)
+
 Selection Process:
-1. Analyze the request to understand what development domain/technology the user needs rules for
-2. Return the most relevant rule content based on:
+1. If user says "apply all rules" or "get all rules" → Call list_rules first, then use ALL domain names in the domains array
+2. For specific requests → Analyze what development domain/technology the user needs rules for
+3. Return the most relevant rule content based on:
    - Exact domain name match (e.g., "react", "security", "typescript")
    - Content relevance to the user's development context
    - Comprehensive coverage of best practices and guidelines
+
 For ambiguous requests, request clarification before proceeding with a best-guess match.`,
         inputSchema: {
           type: 'object',
@@ -60,7 +71,7 @@ For ambiguous requests, request clarification before proceeding with a best-gues
               items: {
                 type: 'string',
               },
-              description: 'Array of domain names to retrieve rules for (e.g., ["react", "security", "nextjs"])',
+              description: 'Array of domain names to retrieve rules for. Use ALL available domain names from list_rules when user requests "apply all rules" (e.g., ["react", "security", "nextjs", "typescript", "clean-code", ...])',
             },
           },
           oneOf: [
