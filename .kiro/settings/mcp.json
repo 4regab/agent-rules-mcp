@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+      "agentrules": {
+        "command": "npx",
+        "args": ["agent-rules-mcp@latest"],
+        "env": {
+          "GITHUB_OWNER": "your-username",
+          "GITHUB_REPO": "your-rules-repo",
+          "GITHUB_PATH": "rules",
+          "GITHUB_BRANCH": "main",
+          "GITHUB_TOKEN": "optional"
+        },
+        "disabled": false
+      }
+    }
+  }
