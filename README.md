@@ -1,6 +1,6 @@
 # Agent Rules MCP Server
 
-A Model Context Protocol (MCP) server that enables **AI agents to fetch coding rules** from your GitHub repositoriy. Instead of cluttering your workspace with local rule files, you can now prompt AI agents to access the latest coding standards, best practices, and guidelines directly from your GitHub repository through natural language requests.
+MCP server that enables **agents to fetch coding rules** from your GitHub repository. Instead of cluttering your workspace with local rule files, you can now prompt AI agents to access the latest coding standards, best practices, and guidelines directly from your GitHub repository through natural language requests.
 
 ## Features
 
@@ -12,8 +12,6 @@ A Model Context Protocol (MCP) server that enables **AI agents to fetch coding r
 - **Configurable**: Support for custom repositories, branches, and paths
 
 ## MCP Client Configuration
-
-### Using the Published Package
 
 Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.):
 
@@ -38,9 +36,8 @@ Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.
 
 ## Available Tools
 
-#### `get_rules` - Retrieves rule content for one or multiple domains from the GitHub repository rules folder.
-
-#### `list_rules` - Lists all available rule domains with descriptions.
+-  `get_rules`: Retrieves rule content for one or multiple domains from the GitHub repository rules folder.
+-  `list_rules`: Lists all available rule domains with descriptions.
 
 ### Using Your Own Rules Folder Repository  (Recommended)
 
@@ -55,7 +52,7 @@ To use your own GitHub repository instead of the default:
       "env": {
         "GITHUB_OWNER": "your-username",
         "GITHUB_REPO": "your-rules-repo",
-        "GITHUB_PATH": "rules",
+        "GITHUB_PATH": "youre-rules-folder",
         "GITHUB_BRANCH": "main",
         "GITHUB_TOKEN": "ghp_your_personal_access_token"
       },
@@ -152,23 +149,9 @@ def calculateTotalPrice(itemCount,unitPrice):
 ```
 ````
 
-## Testing GitHub Configuration
+## How It Helps
 
-Test your GitHub configuration before using with MCP:
-
-```bash
-# Test repository access
-curl -H "Authorization: token YOUR_TOKEN" \
-  https://api.github.com/repos/OWNER/REPO/contents/PATH
-
-# Example
-curl -H "Authorization: token ghp_xxxx" \
-  https://api.github.com/repos/4regab/agent-rules-mcp/contents/rules
-```
-
-## Use Cases
-
-### 🎯 Primary Use Case: On-Demand Rule Access for AI Agents
+### On-Demand Rule Access for AI Agents
 
 This MCP server eliminates the need for local rule files in your workspace. Instead of copying coding standards into each project, developers can now **prompt AI agents to fetch specific coding rules on-demand** from centralized GitHub repositories.
 
@@ -204,5 +187,4 @@ MIT License - see LICENSE file for details.
 ## Support
 
 - **Issues**: Report bugs and feature requests on GitHub Issues
-- **Discussions**: Join community discussions on GitHub Discussions
 - **Documentation**: Check this README and inline code documentation
