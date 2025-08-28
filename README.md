@@ -1,5 +1,9 @@
 # Agent Rules MCP Server
 
+[![MCP Server](https://badge.mcpx.dev?type=server)](https://modelcontextprotocol.io/)
+[![NPM Version](https://img.shields.io/npm/v/agent-rules-mcp?style=flat-square&logo=npm)](https://www.npmjs.com/package/agent-rules-mcp)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
 This MCP server eliminates the need for local rule files in your workspace. Instead of copying coding standards into each project, you can now **prompt AI agents to fetch specific coding rules** or all your rules from any rules folder on a public repository or your own.
 
 ## Features
