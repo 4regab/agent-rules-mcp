@@ -7,7 +7,8 @@ This MCP server eliminates the need for local rule files in your workspace. Inst
 - **GitHub Integration**: Fetches rules from any GitHub repository 
 - **Simple Setup**: Configure with environment variables, no local files needed
 - **Configurable**: Support for custom repositories, branches, and paths
-- **Community Rules**: Works with existing collections like [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules)
+- **Community Rules**: Works with existing collections like [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) and [awesome-copilot](https://github.com/github/awesome-copilot), etc.
+- **Compound Extensions**: Supports .chatmode.md, .prompt.md, .instructions.md files
 - **Flexible Format**: Supports any markdown files (.md/.mdc) with or without metadata
 
 ## MCP Client Configuration (default)
@@ -32,11 +33,33 @@ Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.
 }
 ```
 
-## **Example Use of Awesome Cursor Rules Collection**
+## **Example Use of Community Rules Collections**
 
-Get instant access to hundreds of community-maintained coding rules:
+### GitHub Awesome Copilot Collection 
 
-1. **Add to your MCP configuration:**
+Get instant access to community-maintained coding rules:
+
+```json
+{
+  "mcpServers": {
+    "agent-rules": {
+      "command": "npx",
+      "args": ["-y","agent-rules-mcp@latest"],
+      "env": {
+        "GITHUB_OWNER": "github",
+        "GITHUB_REPO": "awesome-copilot",         
+        "GITHUB_PATH": "instructions",
+        "GITHUB_BRANCH": "main"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+### Awesome Cursor Rules Collection
+
+Alternative collection for cursor-specific rules:
+
 ```json
 {
   "mcpServers": {
@@ -85,12 +108,10 @@ To use your own GitHub repository instead of the default:
 
 ```
 my-coding-rules/
-├── rules/
+├── rules/                       # Traditional single directory
 │   ├── python-style.md          # Standard markdown with metadata
 │   ├── react-patterns.mdc       # MDC format supported
-│   ├── security-checklist.md    # With YAML frontmatter
-│   ├── api-design.md           # Simple markdown (no metadata required)
-│   └── legacy-docs.md          # Any existing markdown works
+│   └── security-checklist.md    # With YAML frontmatter
 ├── README.md
 └── .gitignore
 ```
@@ -123,12 +144,28 @@ my-project/
 → Agent automatically fetches React rules from your rules folder
 ```
 
-### **Flexible Support**
+### **Flexible Support & File Format Compatibility**
 
-The server also works with any markdown file, even without specific metadata. If no description is provided, it will:
+The server works with various file formats and naming conventions:
+
+**Supported Extensions:**
+- `.md` - Standard markdown files
+- `.mdc` - MDC (Markdown Components) files  
+- `.chatmode.md` - AI assistant mode definitions
+- `.prompt.md` - Prompt templates
+- `.instructions.md` - Coding instruction files
+
+**Automatic Metadata Extraction:**
+If no explicit metadata is provided, the server will:
 - Extract the first heading as a title
-- Use the first paragraph as a description
+- Use the first paragraph as a description  
 - Generate a fallback description based on the filename
+- Parse YAML frontmatter when available
+
+**Domain Name Handling:**
+- `accessibility.chatmode.md` → domain: `accessibility`
+- `react-best-practices.instructions.md` → domain: `react-best-practices`
+- `4.1-Beast.chatmode.md` → domain: `4.1-Beast` (supports dots and special chars)
 
 This means you can use any existing markdown documentation as rules without modification.
 
