@@ -66,20 +66,16 @@ For ambiguous requests, request clarification before proceeding with a best-gues
           properties: {
             domain: {
               type: 'string',
-              description: 'The domain name to retrieve rules for (e.g., "react", "security")',
+              description: 'The domain name to retrieve rules for (e.g., "react", "security"). Use this for single domain requests.',
             },
             domains: {
               type: 'array',
               items: {
                 type: 'string',
               },
-              description: 'Array of domain names to retrieve rules for. Use ALL available domain names from list_rules when user requests "apply all rules" (e.g., ["react", "security", "nextjs", "typescript", "clean-code", ...])',
+              description: 'Array of domain names to retrieve rules for. Use ALL available domain names from list_rules when user requests "apply all rules" (e.g., ["react", "security", "nextjs", "typescript", "clean-code", ...]). Use this for multiple domain requests.',
             },
           },
-          oneOf: [
-            { required: ['domain'] },
-            { required: ['domains'] }
-          ],
         },
       },
       {
