@@ -407,7 +407,7 @@ For more information, visit: https://github.com/4regab/agent-rules-mcp
   }
 
   if (args.includes('--version') || args.includes('-v')) {
-    console.log('agent-rules-mcp v1.0.0');
+    console.log('agent-rules-mcp v1.3.0');
     process.exit(0);
   }
 }

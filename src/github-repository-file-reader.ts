@@ -37,12 +37,7 @@ export class GitHubRepositoryFileReader {
   private readonly DIRECTORY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes for directory listing
   private rateLimitResetTime: number = 0;
 
-  // Fallback domain list for when API is rate limited
-  private readonly FALLBACK_DOMAINS = [
-    'clean-code', 'fastapi', 'nextjs-tailwind', 'node-express',
-    'performance-optimization', 'react', 'security', 'silent-behavior',
-    'tailwind', 'tasksync', 'typescript', 'vite'
-  ];
+
 
   constructor(
     owner?: string,
@@ -58,6 +53,8 @@ export class GitHubRepositoryFileReader {
     this.baseUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
     this.token = process.env.GITHUB_TOKEN;
 
+    // Initialization complete
+
     // Validate required configuration
     if (!this.owner) {
       throw new Error('GITHUB_OWNER environment variable is required');
@@ -69,7 +66,7 @@ export class GitHubRepositoryFileReader {
 
   /**
    * Read a specific rule file by domain name from GitHub
-   * @param domain - The domain name (filename without .md/.mdc extension)
+   * @param domain - The domain name (filename without extensions)
    * @returns Promise<string> - The file content
    * @throws Error if file doesn't exist or can't be read
    */
@@ -80,65 +77,70 @@ export class GitHubRepositoryFileReader {
         return await this.readRuleFileViaRawUrl(domain);
       }
 
-      // Try both .md and .mdc extensions
-      const extensions = ['.md', '.mdc'];
+      // Try to find the file in multiple directories and with different extensions
+      const directories = this.path ? [this.path] : ['chatmodes', 'prompts', 'instructions'];
+      const extensions = ['.chatmode.md', '.prompt.md', '.instructions.md', '.md', '.mdc'];
+      
       let lastError: Error | null = null;
 
-      for (const ext of extensions) {
-        try {
-          const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}/${domain}${ext}?ref=${this.branch}`;
-          const headers: Record<string, string> = {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'agent-rules-mcp'
-          };
+      for (const dir of directories) {
+        for (const ext of extensions) {
+          try {
+            const filename = `${domain}${ext}`;
+            const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${dir}/${filename}?ref=${this.branch}`;
+            
+            const headers: Record<string, string> = {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'agent-rules-mcp'
+            };
 
-          // Add GitHub token if available for higher rate limits
-          if (this.token) {
-            headers['Authorization'] = `token ${this.token}`;
-          }
-
-          const response = await fetch(url, { headers });
-
-          // Update rate limit tracking
-          const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
-          const rateLimitReset = response.headers.get('x-ratelimit-reset');
-
-          if (rateLimitReset) {
-            this.rateLimitResetTime = parseInt(rateLimitReset) * 1000; // Convert to milliseconds
-          }
-
-          if (response.ok) {
-            const data = await response.json() as any;
-
-            if (data.type !== 'file') {
-              throw new Error(`Expected file but got ${data.type} for domain: ${domain}`);
+            // Add GitHub token if available for higher rate limits
+            if (this.token) {
+              headers['Authorization'] = `token ${this.token}`;
             }
 
-            // Decode base64 content
-            const content = Buffer.from(data.content, 'base64').toString('utf-8');
-            return content;
-          } else if (response.status !== 404) {
-            if (response.status === 403 || response.status === 429) {
-              // Try fallback method when rate limited
-              return await this.readRuleFileViaRawUrl(domain);
+            const response = await fetch(url, { headers });
+
+            // Update rate limit tracking
+            const rateLimitReset = response.headers.get('x-ratelimit-reset');
+            if (rateLimitReset) {
+              this.rateLimitResetTime = parseInt(rateLimitReset) * 1000; // Convert to milliseconds
             }
-            throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
-          }
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error(String(error));
-          // If this was a rate limit error, try fallback
-          if (lastError.message.includes('rate limit')) {
-            try {
-              return await this.readRuleFileViaRawUrl(domain);
-            } catch (fallbackError) {
-              // Continue to next extension or fail
+
+            if (response.ok) {
+              const data = await response.json() as any;
+
+              if (data.type !== 'file') {
+                throw new Error(`Expected file but got ${data.type} for domain: ${domain}`);
+              }
+
+              // Decode base64 content
+              const content = Buffer.from(data.content, 'base64').toString('utf-8');
+              return content;
+            } else if (response.status !== 404) {
+              if (response.status === 403 || response.status === 429) {
+                // Try fallback method when rate limited
+                return await this.readRuleFileViaRawUrl(domain);
+              }
+              throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+            }
+            // 404 is expected when file doesn't exist, continue to next combination
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            // If this was a rate limit error, try fallback
+            if (lastError.message.includes('rate limit')) {
+              try {
+                return await this.readRuleFileViaRawUrl(domain);
+              } catch (fallbackError) {
+                // Continue to next combination
+              }
             }
           }
         }
       }
 
-      // If we get here, neither extension worked
-      throw new Error(`Rule file not found for domain: ${domain} (tried .md and .mdc extensions)`);
+      // If we get here, no file was found in any directory with any extension
+      throw new Error(`Rule file not found for domain: ${domain} (searched in ${directories.join(', ')} with extensions ${extensions.join(', ')})`);
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -152,36 +154,39 @@ export class GitHubRepositoryFileReader {
    * This has different rate limits and doesn't require API authentication
    */
   private async readRuleFileViaRawUrl(domain: string): Promise<string> {
-    const extensions = ['.md', '.mdc'];
+    const directories = this.path ? [this.path] : ['chatmodes', 'prompts', 'instructions'];
+    const extensions = ['.chatmode.md', '.prompt.md', '.instructions.md', '.md', '.mdc'];
     let lastError: Error | null = null;
 
-    for (const ext of extensions) {
-      try {
-        // Use raw.githubusercontent.com which has different rate limits
-        const rawUrl = `https://raw.githubusercontent.com/${this.owner}/${this.repo}/${this.branch}/${this.path}/${domain}${ext}`;
+    for (const dir of directories) {
+      for (const ext of extensions) {
+        try {
+          // Use raw.githubusercontent.com which has different rate limits
+          const rawUrl = `https://raw.githubusercontent.com/${this.owner}/${this.repo}/${this.branch}/${dir}/${domain}${ext}`;
 
-        const response = await fetch(rawUrl, {
-          headers: {
-            'User-Agent': 'agent-rules-mcp'
+          const response = await fetch(rawUrl, {
+            headers: {
+              'User-Agent': 'agent-rules-mcp'
+            }
+          });
+
+          if (response.ok) {
+            const content = await response.text();
+            return content;
+          } else if (response.status !== 404) {
+            throw new Error(`Raw GitHub error: ${response.status} ${response.statusText}`);
           }
-        });
-
-        if (response.ok) {
-          const content = await response.text();
-          return content;
-        } else if (response.status !== 404) {
-          throw new Error(`Raw GitHub error: ${response.status} ${response.statusText}`);
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
         }
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
       }
     }
 
-    throw new Error(`Rule file not found for domain: ${domain} via raw URL (tried .md and .mdc extensions)`);
+    throw new Error(`Rule file not found for domain: ${domain} via raw URL (searched in ${directories.join(', ')} with extensions ${extensions.join(', ')})`);
   }
 
   /**
-   * List all available rule files in the GitHub repository
+   * List all available rule files in the GitHub repository from multiple directories
    * @returns Promise<string[]> - Array of domain names (filenames without .md/.mdc extension)
    */
   async listRuleFiles(): Promise<string[]> {
@@ -198,62 +203,31 @@ export class GitHubRepositoryFileReader {
           return this.extractDomainsFromDirectoryData(this.directoryCache.data);
         }
 
-        // Use fallback domain list when rate limited and no cache available
-        return this.FALLBACK_DOMAINS;
+        // Return empty array when rate limited and no cache available
+        return [];
       }
 
-      const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${this.path}?ref=${this.branch}`;
-      const headers: Record<string, string> = {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'agent-rules-mcp'
-      };
-
-      // Add GitHub token if available for higher rate limits
-      const hasToken = !!this.token;
-      if (this.token) {
-        headers['Authorization'] = `token ${this.token}`;
-      }
-
-      const response = await fetch(url, { headers });
-
-      // Update rate limit tracking
-      const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
-      const rateLimitReset = response.headers.get('x-ratelimit-reset');
-
-      if (rateLimitReset) {
-        this.rateLimitResetTime = parseInt(rateLimitReset) * 1000; // Convert to milliseconds
-      }
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.warn(`Rules directory not found: ${this.path}`);
-          return [];
+      // For awesome-copilot repository, scan multiple directories
+      const directories = this.path ? [this.path] : ['chatmodes', 'prompts', 'instructions'];
+      
+      let allFiles: any[] = [];
+      
+      for (const dir of directories) {
+        try {
+          const dirFiles = await this.fetchDirectoryContents(dir);
+          allFiles = allFiles.concat(dirFiles);
+        } catch (error) {
+          // Continue with other directories even if one fails
         }
-        if (response.status === 403 || response.status === 429) {
-          // If we have cached data, use it
-          if (this.directoryCache) {
-            return this.extractDomainsFromDirectoryData(this.directoryCache.data);
-          }
-
-          // Use fallback domain list when rate limited
-          return this.FALLBACK_DOMAINS;
-        }
-        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as any[];
-
-      if (!Array.isArray(data)) {
-        throw new Error('Expected directory listing but got single file');
-      }
-
-      // Cache the directory data
+      // Cache the combined directory data
       this.directoryCache = {
-        data: data,
+        data: allFiles,
         timestamp: Date.now()
       };
 
-      return this.extractDomainsFromDirectoryData(data);
+      return this.extractDomainsFromDirectoryData(allFiles);
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -263,28 +237,94 @@ export class GitHubRepositoryFileReader {
   }
 
   /**
+   * Fetch contents of a specific directory
+   */
+  private async fetchDirectoryContents(directory: string): Promise<any[]> {
+    const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${directory}?ref=${this.branch}`;
+    
+    const headers: Record<string, string> = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'agent-rules-mcp'
+    };
+
+    if (this.token) {
+      headers['Authorization'] = `token ${this.token}`;
+    }
+
+    const response = await fetch(url, { headers });
+
+    // Update rate limit tracking
+    const rateLimitReset = response.headers.get('x-ratelimit-reset');
+    if (rateLimitReset) {
+      this.rateLimitResetTime = parseInt(rateLimitReset) * 1000;
+    }
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [];
+      }
+      throw new Error(`GitHub API error for ${directory}: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json() as any[];
+    
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data;
+  }
+
+  /**
    * Extract domain names from directory data
    */
   private extractDomainsFromDirectoryData(data: any[]): string[] {
     const validDomains: string[] = [];
+    const seenDomains = new Set<string>(); // Prevent duplicates
 
     for (const item of data) {
-      if (item.type !== 'file' || !(item.name.endsWith('.md') || item.name.endsWith('.mdc'))) {
+      if (item.type !== 'file') {
+        continue;
+      }
+
+      // Only process rule files (not README, CONTRIBUTING, etc.)
+      if (!this.isRuleFile(item.name)) {
         continue;
       }
 
       const domain = this.extractDomainFromFilename(item.name);
 
+      // Skip if we've already seen this domain
+      if (seenDomains.has(domain)) {
+        continue;
+      }
+
       // Validate domain name format
       if (!this.isValidDomain(domain)) {
-        console.warn(`Skipping invalid domain name: ${domain} (from file: ${item.name})`);
         continue;
       }
 
       validDomains.push(domain);
+      seenDomains.add(domain);
     }
 
     return validDomains;
+  }
+
+  /**
+   * Check if a filename represents a rule file
+   */
+  private isRuleFile(filename: string): boolean {
+    // Skip common non-rule files
+    const skipFiles = ['README.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md', 'SUPPORT.md', 'LICENSE.md'];
+    if (skipFiles.includes(filename)) {
+      return false;
+    }
+
+    // Only include files with rule-related extensions
+    const ruleExtensions = ['.chatmode.md', '.prompt.md', '.instructions.md'];
+    return ruleExtensions.some(ext => filename.endsWith(ext)) || 
+           (filename.endsWith('.md') && !filename.startsWith('README'));
   }
 
   /**
@@ -421,12 +461,26 @@ export class GitHubRepositoryFileReader {
    * Extract domain name from filename
    */
   extractDomainFromFilename(filename: string): string {
+    // Handle compound extensions like .chatmode.md, .prompt.md, .instructions.md
     if (filename.endsWith('.md')) {
-      return filename.slice(0, -3);
+      let baseName = filename.slice(0, -3); // Remove .md
+      
+      // Check for common compound extensions and extract the main domain name
+      const compoundExtensions = ['.chatmode', '.prompt', '.instructions'];
+      for (const ext of compoundExtensions) {
+        if (baseName.endsWith(ext)) {
+          baseName = baseName.slice(0, -ext.length);
+          break;
+        }
+      }
+      
+      return baseName;
     }
+    
     if (filename.endsWith('.mdc')) {
       return filename.slice(0, -4);
     }
+    
     return filename;
   }
 
@@ -434,7 +488,8 @@ export class GitHubRepositoryFileReader {
    * Validate domain name format
    */
   isValidDomain(domain: string): boolean {
-    return /^[a-zA-Z0-9_-]+$/.test(domain) && domain.length > 0;
+    // Allow alphanumeric, hyphens, underscores, and dots (for versions like 4.1-Beast)
+    return /^[a-zA-Z0-9._-]+$/.test(domain) && domain.length > 0;
   }
 
   /**
