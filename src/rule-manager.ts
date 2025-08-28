@@ -29,11 +29,15 @@ export class RuleManager {
         return cached;
       }
 
-      // Check if rule exists
-      const exists = await this.fileReader.ruleExists(domain);
-      if (!exists) {
-        Logger.warn(`Rule not found for domain: ${domain}`, { domain });
-        return null;
+      // Skip existence check when rate limited to save API calls
+      const hasToken = this.fileReader.hasAuthToken();
+      if (hasToken) {
+        // Check if rule exists
+        const exists = await this.fileReader.ruleExists(domain);
+        if (!exists) {
+          Logger.warn(`Rule not found for domain: ${domain}`, { domain });
+          return null;
+        }
       }
 
       // Read and parse the rule file
@@ -60,24 +64,38 @@ export class RuleManager {
       const domains = await this.fileReader.listRuleFiles();
       const domainInfos: DomainInfo[] = [];
 
-      // Process each domain to extract metadata
-      for (const domain of domains) {
-        try {
-          const ruleContent = await this.getRuleContent(domain);
-          if (ruleContent) {
-            domainInfos.push({
-              domain: ruleContent.domain,
-              description: ruleContent.description || `Rules for ${domain}`,
-              lastUpdated: ruleContent.lastUpdated
-            });
-          }
-        } catch (error) {
-          Logger.warn(`Failed to process domain ${domain}`, { domain, error: error instanceof Error ? error.message : error });
-          // Continue processing other domains even if one fails
+      // For unauthenticated requests, avoid making individual API calls for each domain
+      // Instead, provide basic domain info to conserve rate limits
+      const hasToken = this.fileReader.hasAuthToken();
+      
+      if (!hasToken && domains.length > 5) {
+        // For unauthenticated requests with many domains, provide basic info without fetching content
+        for (const domain of domains) {
           domainInfos.push({
             domain,
-            description: `Rules for ${domain} (metadata unavailable)`
+            description: `Development rules and guidelines for ${domain.replace(/[-_]/g, ' ')}`
           });
+        }
+      } else {
+        // Process each domain to extract metadata (for authenticated requests or small domain counts)
+        for (const domain of domains) {
+          try {
+            const ruleContent = await this.getRuleContent(domain);
+            if (ruleContent) {
+              domainInfos.push({
+                domain: ruleContent.domain,
+                description: ruleContent.description || `Rules for ${domain}`,
+                lastUpdated: ruleContent.lastUpdated
+              });
+            }
+          } catch (error) {
+            Logger.warn(`Failed to process domain ${domain}`, { domain, error: error instanceof Error ? error.message : error });
+            // Continue processing other domains even if one fails
+            domainInfos.push({
+              domain,
+              description: `Rules for ${domain} (metadata unavailable)`
+            });
+          }
         }
       }
 

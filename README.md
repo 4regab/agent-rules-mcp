@@ -24,8 +24,7 @@ Add this configuration to your MCP client (VS Code, Kiro, Cursor, Windsurf, etc.
         "GITHUB_OWNER": "4regab",
         "GITHUB_REPO": "agent-rules-mcp",
         "GITHUB_PATH": "rules",
-        "GITHUB_BRANCH": "master",
-        "GITHUB_TOKEN": "ghp_your_personal_access_token"
+        "GITHUB_BRANCH": "master"
       },
       "disabled": false
     }
@@ -48,8 +47,7 @@ Get instant access to hundreds of community-maintained coding rules:
          "GITHUB_OWNER": "PatrickJS",
          "GITHUB_REPO": "awesome-cursorrules",
          "GITHUB_PATH": "rules-new",
-         "GITHUB_BRANCH": "main",
-         "GITHUB_TOKEN": "ghp_your_personal_access_token"  
+         "GITHUB_BRANCH": "main"
          }
        }
      }
@@ -75,8 +73,7 @@ To use your own GitHub repository instead of the default:
         "GITHUB_OWNER": "your-username",
         "GITHUB_REPO": "your-rules-repo",
         "GITHUB_PATH": "your-rules-folder",
-        "GITHUB_BRANCH": "main",
-        "GITHUB_TOKEN": "ghp_your_personal_access_token"
+        "GITHUB_BRANCH": "main"
       },
       "disabled": false
     }
@@ -97,21 +94,6 @@ my-coding-rules/
 ├── README.md
 └── .gitignore
 ```
-
-### GitHub Token (Highly Recommended)
-
-While optional, a GitHub token is **highly recommended** to avoid rate limiting:
-
-- **Without token**: 60 requests/hour per IP
-- **With token**: 5,000 requests/hour per token
-
-**Create a GitHub Personal Access Token:**
-
-1. Go to GitHub Settings → Developer settings → Personal access tokens
-2. Generate new token (classic)
-3. Select scopes: `public_repo` (for public repos) or `repo` (for private repos)
-4. Copy the token and set it as `GITHUB_TOKEN`
-
 
 ## How This Helps
 
