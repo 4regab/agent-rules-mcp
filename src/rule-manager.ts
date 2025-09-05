@@ -1,38 +1,20 @@
 import { GitHubRepositoryFileReader, RuleContent, DomainInfo } from './github-repository-file-reader.js';
-import { Logger, OperationContinuity } from './error-handler.js';
+import { Logger } from './error-handler.js';
 
-/**
- * RuleManager handles rule loading, caching, and provides high-level access to rule content
- * Uses GitHubRepositoryFileReader for remote GitHub operations
- */
 export class RuleManager {
   private fileReader: GitHubRepositoryFileReader;
   private cache: Map<string, RuleContent> = new Map();
   private cacheTimestamps: Map<string, number> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+  private readonly CACHE_TTL = 5 * 60 * 1000;
 
-  constructor(rulesDirectory: string = './rules') {
-    // Use GitHub repository with environment variable configuration
-    this.fileReader = new GitHubRepositoryFileReader();
-  }
+  constructor() { this.fileReader = new GitHubRepositoryFileReader(); }
 
-  /**
-   * Get rule content for a specific domain
-   * @param domain - The domain name to retrieve
-   * @returns Promise<RuleContent | null> - Rule content or null if not found
-   */
   async getRuleContent(domain: string): Promise<RuleContent | null> {
     try {
-      // Check cache first
       const cached = this.getCachedContent(domain);
-      if (cached) {
-        return cached;
-      }
+      if (cached) return cached;
 
-      // Skip existence check when rate limited to save API calls
-      const hasToken = this.fileReader.hasAuthToken();
-      if (hasToken) {
-        // Check if rule exists
+      if (this.fileReader.hasAuthToken()) {
         const exists = await this.fileReader.ruleExists(domain);
         if (!exists) {
           Logger.warn(`Rule not found for domain: ${domain}`, { domain });
@@ -40,11 +22,9 @@ export class RuleManager {
         }
       }
 
-      // Read and parse the rule file
       const content = await this.fileReader.readRuleFile(domain);
       const ruleContent = this.fileReader.parseRuleContent(content, domain);
 
-      // Cache the result
       this.cache.set(domain, ruleContent);
       this.cacheTimestamps.set(domain, Date.now());
 
@@ -55,47 +35,27 @@ export class RuleManager {
     }
   }
 
-  /**
-   * List all available domains with their descriptions
-   * @returns Promise<DomainInfo[]> - Array of domain information
-   */
   async listAvailableDomains(): Promise<DomainInfo[]> {
     try {
       const domains = await this.fileReader.listRuleFiles();
-      const domainInfos: DomainInfo[] = [];
-
-      // For unauthenticated requests, avoid making individual API calls for each domain
-      // Instead, provide basic domain info to conserve rate limits
       const hasToken = this.fileReader.hasAuthToken();
-      
+
       if (!hasToken && domains.length > 5) {
-        // For unauthenticated requests with many domains, provide basic info without fetching content
-        for (const domain of domains) {
-          domainInfos.push({
-            domain,
-            description: `Development rules and guidelines for ${domain.replace(/[-_]/g, ' ')}`
-          });
-        }
-      } else {
-        // Process each domain to extract metadata (for authenticated requests or small domain counts)
-        for (const domain of domains) {
-          try {
-            const ruleContent = await this.getRuleContent(domain);
-            if (ruleContent) {
-              domainInfos.push({
-                domain: ruleContent.domain,
-                description: ruleContent.description || `Rules for ${domain}`,
-                lastUpdated: ruleContent.lastUpdated
-              });
-            }
-          } catch (error) {
-            Logger.warn(`Failed to process domain ${domain}`, { domain, error: error instanceof Error ? error.message : error });
-            // Continue processing other domains even if one fails
-            domainInfos.push({
-              domain,
-              description: `Rules for ${domain} (metadata unavailable)`
-            });
-          }
+        return domains.map(domain => ({ domain, description: `Development rules and guidelines for ${domain.replace(/[-_]/g, ' ')}` }));
+      }
+
+      const domainInfos: DomainInfo[] = [];
+      for (const domain of domains) {
+        try {
+          const ruleContent = await this.getRuleContent(domain);
+          domainInfos.push(ruleContent ? {
+            domain: ruleContent.domain,
+            description: ruleContent.description || `Rules for ${domain}`,
+            lastUpdated: ruleContent.lastUpdated
+          } : { domain, description: `Rules for ${domain} (metadata unavailable)` });
+        } catch (error) {
+          Logger.warn(`Failed to process domain ${domain}`, { domain, error: error instanceof Error ? error.message : error });
+          domainInfos.push({ domain, description: `Rules for ${domain} (metadata unavailable)` });
         }
       }
 
@@ -106,20 +66,12 @@ export class RuleManager {
     }
   }
 
-  /**
-   * Check if cached content is still valid
-   * @param domain - Domain to check
-   * @returns RuleContent | null - Cached content if valid, null otherwise
-   */
   private getCachedContent(domain: string): RuleContent | null {
     const cached = this.cache.get(domain);
     const timestamp = this.cacheTimestamps.get(domain);
 
-    if (cached && timestamp && (Date.now() - timestamp) < this.CACHE_TTL) {
-      return cached;
-    }
+    if (cached && timestamp && (Date.now() - timestamp) < this.CACHE_TTL) return cached;
 
-    // Remove expired cache entries
     if (cached) {
       this.cache.delete(domain);
       this.cacheTimestamps.delete(domain);
@@ -128,10 +80,6 @@ export class RuleManager {
     return null;
   }
 
-  /**
-   * Clear the cache for a specific domain or all domains
-   * @param domain - Optional domain to clear, if not provided clears all
-   */
   clearCache(domain?: string): void {
     if (domain) {
       this.cache.delete(domain);
@@ -144,53 +92,29 @@ export class RuleManager {
     }
   }
 
-  /**
-   * Get cache statistics
-   * @returns Object with cache information
-   */
   getCacheStats(): { size: number; domains: string[] } {
-    return {
-      size: this.cache.size,
-      domains: Array.from(this.cache.keys())
-    };
+    return { size: this.cache.size, domains: Array.from(this.cache.keys()) };
   }
 
-  /**
-   * Handle concurrent requests safely by ensuring only one request per domain at a time
-   * @param domain - Domain to get content for
-   * @returns Promise<RuleContent | null>
-   */
   private requestPromises: Map<string, Promise<RuleContent | null>> = new Map();
 
   async getRuleContentSafe(domain: string): Promise<RuleContent | null> {
-    // Check if there's already a request in progress for this domain
     const existingPromise = this.requestPromises.get(domain);
-    if (existingPromise) {
-      return existingPromise;
-    }
+    if (existingPromise) return existingPromise;
 
-    // Create new request promise
     const promise = this.getRuleContent(domain);
     this.requestPromises.set(domain, promise);
 
     try {
-      const result = await promise;
-      return result;
+      return await promise;
     } finally {
-      // Clean up the promise from the map
       this.requestPromises.delete(domain);
     }
   }
 
-  /**
-   * Get rule content for multiple domains efficiently
-   * @param domains - Array of domain names to retrieve
-   * @returns Promise<Map<string, RuleContent | null>> - Map of domain to rule content
-   */
   async getMultipleRuleContents(domains: string[]): Promise<Map<string, RuleContent | null>> {
     const results = new Map<string, RuleContent | null>();
-    
-    // Process all domains concurrently
+
     const promises = domains.map(async (domain) => {
       try {
         const content = await this.getRuleContentSafe(domain);
@@ -205,11 +129,5 @@ export class RuleManager {
     return results;
   }
 
-  /**
-   * Get the repository information
-   * @returns string - The repository information
-   */
-  getRulesDirectory(): string {
-    return this.fileReader.getRepositoryInfo();
-  }
+  getRulesDirectory(): string { return this.fileReader.getRepositoryInfo(); }
 }

@@ -1,16 +1,22 @@
 {
-    "mcpServers": {
-      "agentrules": {
-        "command": "npx",
-        "args": ["agent-rules-mcp@latest"],
-        "env": {
-          "GITHUB_OWNER": "your-username",
-          "GITHUB_REPO": "your-rules-repo",
-          "GITHUB_PATH": "rules",
-          "GITHUB_BRANCH": "main",
-          "GITHUB_TOKEN": "optional"
-        },
-        "disabled": false
-      }
+  "mcpServers": {
+    "rules": {
+      "command": "node",
+      "args": [
+        "dist/index.js"
+      ],
+      "cwd": "B:\\Download\\qwn\\agent-rules-mcp",
+      "env": {
+        "GITHUB_OWNER": "4regab",
+        "GITHUB_REPO": "agent-rules-mcp",
+        "GITHUB_PATH": "rules",
+        "GITHUB_BRANCH": "master"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "get_rules",
+        "list_rules"
+      ]
     }
   }
+}

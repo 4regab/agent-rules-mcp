@@ -1,6 +1,6 @@
 {
   "name": "agent-rules-mcp",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Model Context Protocol server that enables AI agents to fetch coding rules on-demand from GitHub repositories",
   "main": "dist/index.js",
   "bin": {
