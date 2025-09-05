@@ -208,12 +208,12 @@ const handleCliArgs = () => {
   const hasVersion = args.some(arg => ['--version', '-v'].includes(arg));
 
   if (hasHelp) {
-    console.log(`Agent Rules MCP Server v1.0.0\n\nA Model Context Protocol server that provides development rules and best practices\nfrom a remote GitHub repository.\n\nUsage:\n  agent-rules-mcp [options]\n\nOptions:\n  --help, -h     Show this help message\n  --version, -v  Show version information\n\nThe server fetches rules from a configurable GitHub repository.\nConfigure via environment variables: GITHUB_OWNER, GITHUB_REPO, GITHUB_PATH, GITHUB_BRANCH\n\nExamples:\n  agent-rules-mcp                    # Start server and fetch from GitHub\n\nThe server provides two MCP tools:\n  - get_rules(domain)  Get rule content for a specific domain\n  - list_rules()       List all available rule domains\n\nFor more information, visit: https://github.com/4regab/agent-rules-mcp`);
+    console.log(`Agent Rules MCP Server v1.3.2\n\nA Model Context Protocol server that provides development rules and best practices\nfrom a remote GitHub repository.\n\nUsage:\n  agent-rules-mcp [options]\n\nOptions:\n  --help, -h     Show this help message\n  --version, -v  Show version information\n\nThe server fetches rules from a configurable GitHub repository.\nConfigure via environment variables: GITHUB_OWNER, GITHUB_REPO, GITHUB_PATH, GITHUB_BRANCH\n\nExamples:\n  agent-rules-mcp                    # Start server and fetch from GitHub\n\nThe server provides two MCP tools:\n  - get_rules(domain)  Get rule content for a specific domain\n  - list_rules()       List all available rule domains\n\nFor more information, visit: https://github.com/4regab/agent-rules-mcp`);
     process.exit(0);
   }
 
   if (hasVersion) {
-    console.log('agent-rules-mcp v1.3.0');
+    console.log('agent-rules-mcp v1.3.2');
     process.exit(0);
   }
 };
