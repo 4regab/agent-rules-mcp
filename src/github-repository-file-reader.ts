@@ -168,7 +168,9 @@ export class GitHubRepositoryFileReader {
     if (skipFiles.includes(filename)) return false;
 
     const ruleExtensions = ['.chatmode.md', '.prompt.md', '.instructions.md'];
-    return ruleExtensions.some(ext => filename.endsWith(ext)) || (filename.endsWith('.md') && !filename.startsWith('README'));
+    return ruleExtensions.some(ext => filename.endsWith(ext)) ||
+      (filename.endsWith('.md') && !filename.startsWith('README')) ||
+      filename.endsWith('.mdc');
   }
 
   async ruleExists(domain: string): Promise<boolean> {

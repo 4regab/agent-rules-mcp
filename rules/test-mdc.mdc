@@ -1,0 +1,8 @@
+# Test MDC Rules
+
+This is a test MDC file to reproduce the issue with .mdc files not being fetched.
+
+## Key Points
+- This should be discoverable by list_rules
+- This should be fetchable by get_rules
+- MDC files should work the same as .md files
