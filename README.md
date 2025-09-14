@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/4regab-agent-rules-mcp-badge.png)](https://mseep.ai/app/4regab-agent-rules-mcp)
+
 # Agent Rules MCP Server
 
 [![MCP Server](https://badge.mcpx.dev?type=server)](https://modelcontextprotocol.io/)
