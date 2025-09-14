@@ -1,6 +1,6 @@
 {
   "name": "agent-rules-mcp",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "description": "Model Context Protocol server that enables AI agents to fetch coding rules on-demand from GitHub repositories",
   "main": "dist/index.js",
   "bin": {
@@ -16,7 +16,7 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --run --coverage",
-    "clean": "rimraf dist",
+    "clean": "if exist dist rmdir /s /q dist",
     "prepack": "npm run build:prod",
     "lint": "echo 'TypeScript compilation serves as linting' && npm run typecheck",
     "typecheck": "tsc --noEmit",
@@ -48,10 +48,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "rimraf": "^5.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   },
   "engines": {
