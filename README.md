@@ -196,7 +196,7 @@ We welcome contributions to the default rule repository!
 
 ## Content 
 ```
-
+Made with [Kiro](https://kiro.devpost.com/) for [Code-with-kiro-hackathon](https://kiro.devpost.com/).
 ## License
 
 MIT License - see LICENSE file for details.
